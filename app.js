@@ -43,25 +43,39 @@ function profLevel(ch) {
 // ---------- streak calculation ----------
 function calculateStreak() {
   if (!days.length) return 0;
-  const d = new Date();
-  const todayStr = d.toLocaleDateString("en-CA");
+
+  // Convert the stored "YYYY-MM-DD" strings into Date objects (at midnight UTC)
+  const dateObjects = days.map(d => new Date(d + "T00:00:00Z"));
   
-  let checkDate = new Date();
-  if (!days.includes(todayStr)) {
-    checkDate.setDate(checkDate.getDate() - 1);
-    if (!days.includes(checkDate.toLocaleDateString("en-CA"))) return 0;
+  // Find the most recent practice day
+  const mostRecent = new Date(Math.max(...dateObjects));
+  
+  // Get today and yesterday at midnight UTC
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  
+  const yesterday = new Date(today);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+  // If the most recent practice was before yesterday, the streak is broken
+  if (mostRecent < yesterday) {
+    return 0;
   }
-  
+
+  // Otherwise, count backwards from the most recent day
   let streak = 0;
+  let checkDate = new Date(mostRecent);
+
   while (true) {
-    const str = checkDate.toLocaleDateString("en-CA");
+    const str = checkDate.toISOString().split("T")[0]; // "YYYY-MM-DD"
     if (days.includes(str)) {
       streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
+      checkDate.setUTCDate(checkDate.getUTCDate() - 1);
     } else {
       break;
     }
   }
+  
   return streak;
 }
 
@@ -307,6 +321,12 @@ function renderChart() {
   view.onpointermove = e => {
     if (dragTarget === null) return;
     
+    // If the browser has taken over for scrolling, cancel our drag
+    if (e.cancelable === false) {
+      dragTarget = null;
+      return;
+    }
+
     const dx = Math.abs(e.clientX - startX);
     const dy = Math.abs(e.clientY - startY);
 
@@ -315,6 +335,7 @@ function renderChart() {
         isDragging = true;
         e.preventDefault();
       } else if (dy > 10) {
+        // Vertical swipe: let the browser scroll, cancel our paint
         const tile = tileAt(startX, startY);
         if (tile) paint(tile, !dragTarget); 
         dragTarget = null;
