@@ -40,6 +40,31 @@ function profLevel(ch) {
   return 1;
 }
 
+// ---------- streak calculation ----------
+function calculateStreak() {
+  if (!days.length) return 0;
+  const d = new Date();
+  const todayStr = d.toLocaleDateString("en-CA");
+  
+  let checkDate = new Date();
+  if (!days.includes(todayStr)) {
+    checkDate.setDate(checkDate.getDate() - 1);
+    if (!days.includes(checkDate.toLocaleDateString("en-CA"))) return 0;
+  }
+  
+  let streak = 0;
+  while (true) {
+    const str = checkDate.toLocaleDateString("en-CA");
+    if (days.includes(str)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
 // ---------- theme ----------
 const mq = window.matchMedia("(prefers-color-scheme: dark)");
 function resolvedTheme() {
@@ -186,6 +211,8 @@ function renderChart() {
   Object.values(progress).forEach(p => { right += p.right; wrong += p.wrong; });
   const acc = right + wrong ? Math.round(100 * right / (right + wrong)) : 0;
   const mastered = KANA.filter(k => isMastered(k.ch)).length;
+  
+  const streak = calculateStreak();
 
   const weakFor = script => KANA
     .filter(k => k.script === script && progress[k.ch] && progress[k.ch].miss > 0)
@@ -206,6 +233,7 @@ function renderChart() {
     ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>`
     : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`;
 
+  // Using the Text Variation Selector (\uFE0E) to force text style instead of emoji
   view.innerHTML = `
     <div class="navbar">
       <button id="romaji" class="${settings.showRomaji ? "on" : ""}" aria-label="Show romaji">A</button>
@@ -219,7 +247,7 @@ function renderChart() {
     <div class="header-stats">
       <div class="stat"><b>${mastered}/${KANA.length}</b>mastered</div>
       <div class="stat"><b>${acc}%</b>accuracy</div>
-      <div class="stat"><b>${days.length}</b>days</div>
+      <div class="stat"><b>${streak}</b>streak</div>
       <div class="stat" id="toggle-weak" style="cursor:pointer; color:var(--clay); display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:4px;">
         <div style="display:flex; align-items:center; justify-content:center;">${bookIcon}</div>
         <span style="margin-top:2px;">practice</span>
@@ -242,14 +270,17 @@ function renderChart() {
     
     <div class="dock">
       <button id="drillbtn" class="grow"></button>
-      <button id="study" class="sq ${studyMode ? "on" : ""}" aria-label="Study mode (stroke order)">✒</button>
-      <button id="gear" class="sq" aria-label="Settings">⚙</button>
+      <button id="study" class="sq ${studyMode ? "on" : ""}" aria-label="Study mode (stroke order)">✒︎</button>
+      <button id="gear" class="sq" aria-label="Settings">⚙︎</button>
     </div>`;
       
   const label = () => { const n = count(); $("drillbtn").textContent = n ? `Drill (${n})` : "Choose characters"; $("drillbtn").disabled = !n; };
   label();
 
   let dragTarget = null;
+  let startX = 0, startY = 0;
+  let isDragging = false;
+
   const paint = (tile, on) => {
     const ch = tile.dataset.ch;
     if (on) selected.add(ch); else selected.delete(ch);
@@ -264,17 +295,50 @@ function renderChart() {
     if (studyMode) return;
     const tile = e.target.closest(".tile");
     if (!tile) { dragTarget = null; return; }
+    
+    startX = e.clientX;
+    startY = e.clientY;
+    isDragging = false;
     dragTarget = !selected.has(tile.dataset.ch);
-    paint(tile, dragTarget); label(); e.preventDefault();
+    
+    paint(tile, dragTarget); label(); 
   };
+
   view.onpointermove = e => {
     if (dragTarget === null) return;
-    const tile = tileAt(e.clientX, e.clientY);
-    if (!tile) return;
-    if (dragTarget === selected.has(tile.dataset.ch)) return;
-    paint(tile, dragTarget); label(); e.preventDefault();
+    
+    const dx = Math.abs(e.clientX - startX);
+    const dy = Math.abs(e.clientY - startY);
+
+    if (!isDragging) {
+      if (dx > 10 && dx > dy) {
+        isDragging = true;
+        e.preventDefault();
+      } else if (dy > 10) {
+        const tile = tileAt(startX, startY);
+        if (tile) paint(tile, !dragTarget); 
+        dragTarget = null;
+        return;
+      }
+    }
+
+    if (isDragging) {
+      e.preventDefault();
+      const tile = tileAt(e.clientX, e.clientY);
+      if (!tile) return;
+      if (dragTarget === selected.has(tile.dataset.ch)) return;
+      paint(tile, dragTarget); label();
+    }
   };
-  const endDrag = () => { if (dragTarget !== null) { saveSelected(); dragTarget = null; } };
+
+  const endDrag = () => { 
+    if (dragTarget !== null) { 
+      saveSelected(); 
+      dragTarget = null; 
+      isDragging = false;
+    } 
+  };
+  
   view.onpointerup = endDrag;
   view.onpointercancel = endDrag;
   view.onpointerleave = endDrag;
@@ -389,7 +453,6 @@ function renderSettings() {
       <p class="note">Stroke order data: KanjiVG (c) Ulrich Apel, CC BY-SA 3.0.</p>
     </div>`;
 
-  // ---- Drag handle logic for the slider ----
   const slider = $("mix-slider");
   if (slider) {
     const segs = Array.from(slider.querySelectorAll(".slider-seg"));
@@ -418,7 +481,6 @@ function renderSettings() {
       b = Math.round((b / total) * 100); 
       c = Math.round((c / total) * 100);
       
-      // Fix rounding drift
       const drift = 100 - (a + b + c);
       c += drift;
 
@@ -497,7 +559,6 @@ function renderSettings() {
     };
   }
 
-  // ---- Number Input Logic ----
   const updateFromInputs = (changedKey) => {
     let w = parseInt($("in-write").value) || 0;
     let r = parseInt($("in-read").value) || 0;

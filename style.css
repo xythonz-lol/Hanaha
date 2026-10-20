@@ -86,7 +86,6 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 
 .grid5 {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 0 10px 20px;
-  touch-action: none;
   max-width: 720px; margin-inline: auto;
 }
 .grid5.grid-yoon { grid-template-columns: repeat(3, 1fr); gap: 16px; padding-bottom: 130px; }
