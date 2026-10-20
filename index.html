@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>hirakana</title>
+  <meta name="theme-color" content="#D0021B">
+  <!-- Makes the iPad home-screen version run full-screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="hirakana">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="hirakana logo.svg">
+
+  <!-- BOIGA font (Adobe Fonts). Replace YOUR_KIT_ID with your Adobe Fonts web project ID - see README.
+       Until you do, the app simply falls back to the system font. -->
+  <link rel="stylesheet" href="https://use.typekit.net/YOUR_KIT_ID.css">
+
+  <!-- Clean, thin Japanese font for the kana (neutral even strokes, not rounded/cute) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="view"></main>
+
+  <!-- Pop-up used for the character detail view -->
+  <div id="modal" class="modal"></div>
+
+  <!-- Order matters: data first, app.js last (it starts the app) -->
+  <script src="data.js"></script>
+  <script src="strokes.js"></script>
+  <script src="drill.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

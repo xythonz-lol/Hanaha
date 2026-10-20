@@ -1,0 +1,17 @@
+{
+  "name": "hirakana",
+  "short_name": "hirakana",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFFFFF",
+  "theme_color": "#D0021B",
+  "icons": [
+    {
+      "src": "hirakana logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
