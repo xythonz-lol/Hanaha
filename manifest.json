@@ -9,7 +9,7 @@
   "theme_color": "#D0021B",
   "icons": [
     {
-      "src": "hirakana logo.svg",
+      "src": "logo.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }

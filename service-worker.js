@@ -11,7 +11,7 @@ const CACHE = "hirakana-v26";
 const FILES = [
   "./", "index.html", "style.css", "data.js", "strokes.js", "drill.js", "app.js",
   "manifest.json", 
-  "hirakana logo.svg"
+  "logo.svg"
 ];
 
 self.addEventListener("install", e => {
