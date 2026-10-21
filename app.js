@@ -41,41 +41,32 @@ function profLevel(ch) {
 }
 
 // ---------- streak calculation ----------
+// ---------- streak calculation ----------
 function calculateStreak() {
   if (!days.length) return 0;
-
-  // Convert the stored "YYYY-MM-DD" strings into Date objects (at midnight UTC)
-  const dateObjects = days.map(d => new Date(d + "T00:00:00Z"));
   
-  // Find the most recent practice day
-  const mostRecent = new Date(Math.max(...dateObjects));
-  
-  // Get today and yesterday at midnight UTC
+  // Get today at midnight
   const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  
-  const yesterday = new Date(today);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  today.setHours(0, 0, 0, 0);
 
-  // If the most recent practice was before yesterday, the streak is broken
-  if (mostRecent < yesterday) {
-    return 0;
+  let streak = 0;
+  let checkDate = new Date(today);
+
+  // If we haven't practiced today yet, start checking from yesterday.
+  if (!days.includes(checkDate.toLocaleDateString("en-CA"))) {
+    checkDate.setDate(checkDate.getDate() - 1);
   }
 
-  // Otherwise, count backwards from the most recent day
-  let streak = 0;
-  let checkDate = new Date(mostRecent);
-
+  // Walk backwards until we find a missing day
   while (true) {
-    const str = checkDate.toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const str = checkDate.toLocaleDateString("en-CA");
     if (days.includes(str)) {
       streak++;
-      checkDate.setUTCDate(checkDate.getUTCDate() - 1);
+      checkDate.setDate(checkDate.getDate() - 1);
     } else {
       break;
     }
   }
-  
   return streak;
 }
 

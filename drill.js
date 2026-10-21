@@ -40,7 +40,6 @@ function nextQuestion() {
   const k = pickChar();
   drill.lastCh = k.ch;
 
-  // Build weights based purely on the slider
   let weights = [
     { type: "write", weight: settings.mixWrite },
     { type: "read", weight: settings.mixRead },
@@ -48,9 +47,8 @@ function nextQuestion() {
   ];
   
   weights = weights.filter(w => w.weight > 0);
-  if (!weights.length) weights = [{ type: "write", weight: 1 }]; // fallback
+  if (!weights.length) weights = [{ type: "write", weight: 1 }];
 
-  // Pick a random type
   const totalWeight = weights.reduce((a, b) => a + b.weight, 0);
   let r = Math.random() * totalWeight;
   let type = "write";
@@ -167,22 +165,8 @@ function renderWrite(k) {
   cv.onpointermove = e => { if (drawing) { strokes[strokes.length - 1].push(pos(e)); redraw(); } };
   cv.onpointerup = cv.onpointercancel = () => { drawing = false; };
 
-  $("clear").onclick = () => { 
-    if (!done) { 
-      strokes = []; 
-      hinted = false;
-      redraw(); 
-    } 
-  };
-  
-  $("hint").onclick = () => { 
-    if (!done) { 
-      strokes = []; 
-      hinted = true;
-      // Play the animation on the canvas so they see how to draw it
-      playStrokes(cv, k.ch); 
-    } 
-  };
+  $("clear").onclick = () => { if (!done) { strokes = []; redraw(); } };
+  $("hint").onclick = () => { if (!done) { hinted = true; redraw(); } };
 
   function showContinue(cls, onclick) {
     $("foot").innerHTML = `<button id="go" class="go ${cls}">Continue</button>`;
@@ -211,7 +195,27 @@ function renderWrite(k) {
       $("msg").textContent = "✓ Correct!";
       answered(k.ch, true);
       addReference();
-      showContinue("good", nextQuestion);
+      
+      $("foot").innerHTML = `
+        <button id="mine" class="go alt" style="flex: 0.5; font-size: 16px;">Count as incorrect</button>
+        <button id="go" class="go good">Continue</button>
+      `;
+      
+      $("mine").onclick = () => { 
+        const s = progress[k.ch];
+        if (s) {
+          // Undo the increment that happened when the checker passed
+          s.right = Math.max(0, s.right - 1);
+          s.streak = Math.max(0, s.streak - 1);
+          s.miss = s.miss + 1; // Put the miss weight back
+        }
+        // Now record as incorrect (this increments wrong, sets streak to 0)
+        record(k.ch, false);
+        nextQuestion();
+      };
+      
+      $("go").onclick = nextQuestion;
+      
     } else {
       $("msg").textContent = `✗ Not quite. This is ${k.ch} - watch the stroke order.`;
       $("pair").insertAdjacentHTML("beforeend", `<canvas id="rcv" width="400" height="400"></canvas>`);
@@ -222,6 +226,7 @@ function renderWrite(k) {
     }
   };
 }
+
 function renderSummary() {
   const n = settings.sessionLen, missed = [...new Set(drill.missed)];
   view.innerHTML = `<div class="drill"><div class="card"><div class="score">${drill.score}/${n}</div>
@@ -248,7 +253,6 @@ function toGrid(strokes, isReference) {
   const minX = Math.min(...xs), minY = Math.min(...ys);
   const w = Math.max(...xs) - minX, h = Math.max(...ys) - minY;
   
-  // Stretch to fill the grid (with a little padding)
   const min = 0.35 * Math.max(w, h, 1);
   const sx = (G - 2 * PAD) / Math.max(w, min), sy = (G - 2 * PAD) / Math.max(h, min);
   const ox = (G - w * sx) / 2, oy = (G - h * sy) / 2;
@@ -256,7 +260,6 @@ function toGrid(strokes, isReference) {
   const c = document.createElement("canvas"); c.width = c.height = G;
   const x = c.getContext("2d");
   
-  // User drawing: 2px centerline. Reference: 6px thick blob.
   x.lineWidth = isReference ? 6 : 2;
   x.lineCap = "round"; x.lineJoin = "round"; x.strokeStyle = "#000";
   
