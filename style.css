@@ -84,8 +84,21 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 .section { padding: 20px 12px 6px; font-weight: 700; font-size: 18px; color: var(--text); font-family: var(--title); }
 .section span.sub { display: block; font-weight: 400; font-size: 14px; margin-top: 2px; opacity: .65; font-family: var(--font); }
 
+.script-label {
+  text-align: center;
+  font-family: var(--title);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--clay);
+  opacity: 0.7;
+  margin: 20px 0 8px;
+}
+
 .grid5 {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 0 10px 20px;
+  touch-action: none;
   max-width: 720px; margin-inline: auto;
 }
 .grid5.grid-yoon { grid-template-columns: repeat(3, 1fr); gap: 16px; padding-bottom: 130px; }
@@ -97,10 +110,7 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
   line-height: 1;
   font-family: var(--kana); font-weight: 400;
   outline: 0; outline-offset: -4px;
-  
-  /* Change this: */
-  touch-action: pan-y; 
-  
+  touch-action: pan-y;
   max-width: 128px; max-height: 128px; margin-inline: auto; width: 100%;
 }
 .tile.yoon { font-size: clamp(28px, 6vw, 64px); }
@@ -125,8 +135,8 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 .dock { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; z-index: 6; }
 .dock button { height: 62px; border: 0; border-radius: 31px; background: var(--clay); color: #fff; font-size: 22px; font-weight: 700; font-family: var(--title); }
 .dock .grow { flex: 1; }
-.dock .sq { width: 72px; font-size: 26px; background: var(--surface); color: var(--clay); border: 3px solid var(--clay); }
-.dock .sq#study { font-family: var(--font); font-size: 30px; line-height: 1; }
+.dock .sq { width: 72px; font-size: 26px; background: var(--surface); color: var(--clay); border: 3px solid var(--clay); font-variant-emoji: text; }
+.dock .sq#study { font-family: var(--font); font-size: 30px; line-height: 1; font-variant-emoji: text; }
 .dock .on { background: var(--slate); color: #fff; border-color: var(--slate); }
 .dock button:disabled { opacity: .45; }
 

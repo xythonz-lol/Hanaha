@@ -214,7 +214,7 @@ function playStrokes(cv, ch) {
 }
 
 // ---------- chart ----------
-function renderSection(s, rows, group) {
+function renderSection(s, rows, group, isBoth) {
   let cells = "";
   const isYoon = group === "yoon";
   const cols = isYoon ? 3 : 5;
@@ -228,7 +228,12 @@ function renderSection(s, rows, group) {
         : `<div></div>`;
     }
   });
-  return `<div class="grid5 ${isYoon ? "grid-yoon" : ""}">${cells}</div>`;
+
+  const scriptLabel = isBoth 
+    ? `<div class="script-label">${SCRIPT_NAME[s]}</div>` 
+    : "";
+
+  return `${scriptLabel}<div class="grid5 ${isYoon ? "grid-yoon" : ""}">${cells}</div>`;
 }
 
 function renderChart() {
@@ -290,16 +295,16 @@ function renderChart() {
     </div>
 
     <div class="section">Gojuon<span class="sub">${studyMode ? "Tap to see how to write it" : "Tap to choose what Drill practises"}</span></div>
-    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS, "basic") : ""}
-    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS, "basic") : ""}
+    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS, "basic", s === "both") : ""}
+    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS, "basic", s === "both") : ""}
     
     <div class="section">Dakuten / Handakuten<span class="sub">Voiced & semi-voiced</span></div>
-    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS_VOICED, "voiced") : ""}
-    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_VOICED, "voiced") : ""}
+    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS_VOICED, "voiced", s === "both") : ""}
+    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_VOICED, "voiced", s === "both") : ""}
     
     <div class="section">Yōon<span class="sub">Contracted sounds</span></div>
-    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS_YOON, "yoon") : ""}
-    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_YOON, "yoon") : ""}
+    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS_YOON, "yoon", s === "both") : ""}
+    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_YOON, "yoon", s === "both") : ""}
     
     <div class="dock">
       <button id="drillbtn" class="grow"></button>
