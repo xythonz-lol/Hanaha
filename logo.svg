@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" overflow="hidden" viewBox="3 0 1370 1370"><g transform="translate(-1663 -573)"><path d="M1666 1258C1666 879.685 1972.69 573 2351 573 2729.31 573 3036 879.685 3036 1258 3036 1636.31 2729.31 1943 2351 1943 1972.69 1943 1666 1636.31 1666 1258Z" fill="#C00000" fill-rule="evenodd"/><path d="M1723 1258C1723 907.299 2001.7 623 2345.5 623 2689.3 623 2968 907.299 2968 1258 2968 1608.7 2689.3 1893 2345.5 1893 2001.7 1893 1723 1608.7 1723 1258Z" fill="#740000" fill-rule="evenodd"/><path d="M1716 1258C1716 911.718 1996.72 631 2343 631 2689.28 631 2970 911.718 2970 1258 2970 1604.28 2689.28 1885 2343 1885 1996.72 1885 1716 1604.28 1716 1258Z" fill="#C00000" fill-rule="evenodd"/><text fill="#FFFFFF" font-family="MS Gothic,MS Gothic_MSFontService,sans-serif" font-weight="400" font-size="330" transform="matrix(1 0 0 1 1861.75 1244)">あ</text><text fill="#FFFFFF" font-family="MS Gothic,MS Gothic_MSFontService,sans-serif" font-weight="400" font-size="330" transform="matrix(1 0 0 1 2459.87 1244)">あ</text><text fill="#FFFFFF" font-family="MS Gothic,MS Gothic_MSFontService,sans-serif" font-weight="400" font-size="303" transform="matrix(1 0 0 1 2196.91 1634)">ひ</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1370 1370">
+  <!-- Outer Red Ring -->
+  <path d="M3 685C3 306.685 309.685 0 688 0 1066.31 0 1373 306.685 1373 685 1373 1063.31 1066.31 1370 688 1370 309.685 1370 3 1063.31 3 685Z" fill="#C00000" fill-rule="evenodd"/>
+  
+  <!-- Inner Dark Red Ring -->
+  <path d="M60 685C60 334.299 338.704 50 682.5 50 1026.3 50 1305 334.299 1305 685 1305 1035.7 1026.3 1320 682.5 1320 338.704 1320 60 1035.7 60 685Z" fill="#740000" fill-rule="evenodd"/>
+  
+  <!-- Inner Red Circle -->
+  <path d="M53 685C53 338.718 333.718 58 680 58 1026.28 58 1307 338.718 1307 685 1307 1031.28 1026.28 1312 680 1312 333.718 1312 53 1031.28 53 685Z" fill="#C00000" fill-rule="evenodd"/>
+  
+  <!-- The Face (あ あ for eyes, ひ for smiling mouth) -->
+  <text fill="#FFFFFF" font-family="MS Gothic, sans-serif" font-weight="400" font-size="330" x="450" y="650" text-anchor="middle">あ</text>
+  <text fill="#FFFFFF" font-family="MS Gothic, sans-serif" font-weight="400" font-size="330" x="880" y="650" text-anchor="middle">あ</text>
+  <text fill="#FFFFFF" font-family="MS Gothic, sans-serif" font-weight="400" font-size="303" x="665" y="1020" text-anchor="middle">ひ</text>
+</svg>
