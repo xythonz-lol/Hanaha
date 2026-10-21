@@ -87,18 +87,17 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 .script-label {
   text-align: center;
   font-family: var(--title);
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--clay);
-  opacity: 0.7;
-  margin: 20px 0 8px;
+  margin: 24px 0 8px;
 }
 
 .grid5 {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 0 10px 20px;
-  touch-action: none;
+  touch-action: pan-y;
   max-width: 720px; margin-inline: auto;
 }
 .grid5.grid-yoon { grid-template-columns: repeat(3, 1fr); gap: 16px; padding-bottom: 130px; }
