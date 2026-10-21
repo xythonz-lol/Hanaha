@@ -11,7 +11,12 @@ function shuffle(a) {
   return a;
 }
 
-function poolChars() { return KANA.filter(k => k.script === settings.script && selected.has(k.ch)); }
+function poolChars() { 
+  return KANA.filter(k => {
+    if (settings.script === "both") return selected.has(k.ch);
+    return k.script === settings.script && selected.has(k.ch);
+  });
+}
 
 function startDrill() {
   if (!poolChars().length) return;
@@ -204,12 +209,10 @@ function renderWrite(k) {
       $("mine").onclick = () => { 
         const s = progress[k.ch];
         if (s) {
-          // Undo the increment that happened when the checker passed
           s.right = Math.max(0, s.right - 1);
           s.streak = Math.max(0, s.streak - 1);
-          s.miss = s.miss + 1; // Put the miss weight back
+          s.miss = s.miss + 1; 
         }
-        // Now record as incorrect (this increments wrong, sets streak to 0)
         record(k.ch, false);
         nextQuestion();
       };

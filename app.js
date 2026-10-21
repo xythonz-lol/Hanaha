@@ -1,7 +1,7 @@
 // app.js - hirakana. storage, stroke drawing, chart, detail pop-up, settings, navigation.
 const $ = id => document.getElementById(id);
 const view = $("view"), modal = $("modal");
-const SCRIPT_NAME = { hira: "Hiragana", kata: "Katakana" };
+const SCRIPT_NAME = { hira: "Hiragana", kata: "Katakana", both: "Both" };
 
 function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; }
@@ -20,16 +20,44 @@ let selected = new Set(load("hirakana-selected", KANA.filter(k => k.row === "a" 
 let studyMode = false;
 let uiNeedsPracticeOpen = false;
 
+// Migration for SRS
+Object.keys(progress).forEach(ch => {
+  if (progress[ch].interval === undefined) {
+    progress[ch].interval = progress[ch].streak >= 3 ? 7 : 1;
+    const d = new Date();
+    d.setDate(d.getDate() + progress[ch].interval);
+    progress[ch].dueDate = d.toLocaleDateString("en-CA");
+  }
+});
+store("hirakana-progress", progress);
+
 function saveSettings() { store("hirakana-settings", settings); }
 function saveSelected() { store("hirakana-selected", [...selected]); }
 function isMastered(ch) { return !!progress[ch] && progress[ch].streak >= 3; }
 function record(ch, ok) {
-  const s = progress[ch] || (progress[ch] = { right: 0, wrong: 0, streak: 0, miss: 0 });
-  if (ok) { s.right++; s.streak++; s.miss = Math.max(0, s.miss - 1); }
-  else    { s.wrong++; s.streak = 0; s.miss++; }
+  const s = progress[ch] || (progress[ch] = { right: 0, wrong: 0, streak: 0, miss: 0, interval: 0, dueDate: "" });
+  
+  if (ok) { 
+    s.right++; 
+    s.streak++; 
+    s.miss = Math.max(0, s.miss - 1); 
+    if (s.interval <= 1) s.interval = 1;
+    else s.interval = Math.round(s.interval * 2.5);
+  } else { 
+    s.wrong++; 
+    s.streak = 0; 
+    s.miss++; 
+    s.interval = 1;
+  }
+
+  const today = new Date();
+  today.setDate(today.getDate() + s.interval);
+  s.dueDate = today.toLocaleDateString("en-CA");
+
   store("hirakana-progress", progress);
-  const today = new Date().toLocaleDateString("en-CA");
-  if (!days.includes(today)) { days.push(today); store("hirakana-days", days); }
+  
+  const todayStr = new Date().toLocaleDateString("en-CA");
+  if (!days.includes(todayStr)) { days.push(todayStr); store("hirakana-days", days); }
 }
 
 function profLevel(ch) {
@@ -41,23 +69,19 @@ function profLevel(ch) {
 }
 
 // ---------- streak calculation ----------
-// ---------- streak calculation ----------
 function calculateStreak() {
   if (!days.length) return 0;
   
-  // Get today at midnight
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   let streak = 0;
   let checkDate = new Date(today);
 
-  // If we haven't practiced today yet, start checking from yesterday.
   if (!days.includes(checkDate.toLocaleDateString("en-CA"))) {
     checkDate.setDate(checkDate.getDate() - 1);
   }
 
-  // Walk backwards until we find a missing day
   while (true) {
     const str = checkDate.toLocaleDateString("en-CA");
     if (days.includes(str)) {
@@ -209,8 +233,10 @@ function renderSection(s, rows, group) {
 
 function renderChart() {
   const s = settings.script;
-  const count = () => KANA.filter(k => k.script === s && selected.has(k.ch)).length;
-  const scriptSub = s === "hira" ? "Used for native Japanese words" : "Used for borrowed words";
+  const scriptsToShow = s === "both" ? ["hira", "kata"] : [s];
+
+  const count = () => KANA.filter(k => scriptsToShow.includes(k.script) && selected.has(k.ch)).length;
+  const scriptSub = s === "both" ? "Hiragana & Katakana" : (s === "hira" ? "Used for native Japanese words" : "Used for borrowed words");
   
   let right = 0, wrong = 0;
   Object.values(progress).forEach(p => { right += p.right; wrong += p.wrong; });
@@ -238,7 +264,6 @@ function renderChart() {
     ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>`
     : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`;
 
-  // Using the Text Variation Selector (\uFE0E) to force text style instead of emoji
   view.innerHTML = `
     <div class="navbar">
       <button id="romaji" class="${settings.showRomaji ? "on" : ""}" aria-label="Show romaji">A</button>
@@ -265,13 +290,16 @@ function renderChart() {
     </div>
 
     <div class="section">Gojuon<span class="sub">${studyMode ? "Tap to see how to write it" : "Tap to choose what Drill practises"}</span></div>
-    ${renderSection(s, ROWS, "basic")}
+    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS, "basic") : ""}
+    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS, "basic") : ""}
     
     <div class="section">Dakuten / Handakuten<span class="sub">Voiced & semi-voiced</span></div>
-    ${renderSection(s, ROWS_VOICED, "voiced")}
+    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS_VOICED, "voiced") : ""}
+    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_VOICED, "voiced") : ""}
     
     <div class="section">Yōon<span class="sub">Contracted sounds</span></div>
-    ${renderSection(s, ROWS_YOON, "yoon")}
+    ${scriptsToShow.includes("hira") ? renderSection("hira", ROWS_YOON, "yoon") : ""}
+    ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_YOON, "yoon") : ""}
     
     <div class="dock">
       <button id="drillbtn" class="grow"></button>
@@ -312,12 +340,6 @@ function renderChart() {
   view.onpointermove = e => {
     if (dragTarget === null) return;
     
-    // If the browser has taken over for scrolling, cancel our drag
-    if (e.cancelable === false) {
-      dragTarget = null;
-      return;
-    }
-
     const dx = Math.abs(e.clientX - startX);
     const dy = Math.abs(e.clientY - startY);
 
@@ -326,7 +348,6 @@ function renderChart() {
         isDragging = true;
         e.preventDefault();
       } else if (dy > 10) {
-        // Vertical swipe: let the browser scroll, cancel our paint
         const tile = tileAt(startX, startY);
         if (tile) paint(tile, !dragTarget); 
         dragTarget = null;
@@ -364,7 +385,12 @@ function renderChart() {
 
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.id === "scr") { settings.script = s === "hira" ? "kata" : "hira"; saveSettings(); renderChart(); }
+    if (b.id === "scr") {
+      if (s === "hira") settings.script = "kata";
+      else if (s === "kata") settings.script = "both";
+      else settings.script = "hira";
+      saveSettings(); renderChart();
+    }
     else if (b.id === "romaji") { settings.showRomaji = !settings.showRomaji; saveSettings(); renderChart(); }
     else if (b.id === "study") { studyMode = !studyMode; renderChart(); }
     else if (b.id === "gear") show("settings");
