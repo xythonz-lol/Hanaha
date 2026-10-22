@@ -11,9 +11,29 @@ function store(key, value) {
 }
 const DEFAULTS = {
   script: "hira", showRomaji: false, choices: 6, sessionLen: 10,
-  mixWrite: 34, mixRead: 33, mixPick: 33, level: "normal", theme: "auto"
+  mixWrite: 28, mixRead: 26, mixPick: 26, mixWords: 20, level: "normal", theme: "auto"
 };
-let settings = Object.assign({}, DEFAULTS, load("hirakana-settings", {}));
+function migrateQuestionMix(target, hasWordMix) {
+  const kanaKeys = ["mixWrite", "mixRead", "mixPick"];
+  if (!hasWordMix) target.mixWords = 0;
+  const kanaTotal = kanaKeys.reduce((total, key) => total + target[key], 0);
+  if (hasWordMix && kanaTotal === 100 && kanaTotal + target.mixWords !== 100 &&
+      Number.isInteger(target.mixWords) && target.mixWords >= 0 && target.mixWords <= 100) {
+    const kanaBudget = 100 - target.mixWords;
+    let assigned = 0;
+    kanaKeys.forEach((key, i) => {
+      target[key] = i === kanaKeys.length - 1
+        ? kanaBudget - assigned
+        : Math.floor(kanaBudget * target[key] / kanaTotal);
+      assigned += target[key];
+    });
+  }
+}
+const savedSettings = load("hirakana-settings", null);
+let settings = Object.assign({}, DEFAULTS, savedSettings || {});
+if (savedSettings) {
+  migrateQuestionMix(settings, Object.prototype.hasOwnProperty.call(savedSettings, "mixWords"));
+}
 delete settings.pronunciationVolume;
 let progress = load("hirakana-progress", {});
 let days = load("hirakana-days", []);
@@ -81,13 +101,14 @@ function validateBackup(backup) {
 
   const data = backup.data;
   const validChars = new Set(KANA.map(k => k.ch));
-  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "level", "theme"];
+  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "mixWords", "level", "theme"];
   if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings) ||
       Object.keys(data.settings).some(key => !validKeys.includes(key) && key !== "pronunciationVolume")) {
     throw new Error("The backup has invalid settings.");
   }
 
   const importedSettings = Object.assign({}, DEFAULTS, data.settings);
+  migrateQuestionMix(importedSettings, Object.prototype.hasOwnProperty.call(data.settings, "mixWords"));
   delete importedSettings.pronunciationVolume;
   if (!["hira", "kata", "both"].includes(importedSettings.script) ||
       typeof importedSettings.showRomaji !== "boolean" ||
@@ -95,10 +116,11 @@ function validateBackup(backup) {
       ![5, 10, 20].includes(importedSettings.sessionLen) ||
       !["easy", "normal", "strict"].includes(importedSettings.level) ||
       !["light", "dark", "auto"].includes(importedSettings.theme) ||
+      !Number.isInteger(importedSettings.mixWords) || importedSettings.mixWords < 0 || importedSettings.mixWords > 100 ||
       !["mixWrite", "mixRead", "mixPick"].every(key =>
         Number.isInteger(importedSettings[key]) && importedSettings[key] >= 0 && importedSettings[key] <= 100
       ) ||
-      importedSettings.mixWrite + importedSettings.mixRead + importedSettings.mixPick !== 100) {
+      importedSettings.mixWrite + importedSettings.mixRead + importedSettings.mixPick + importedSettings.mixWords !== 100) {
     throw new Error("The backup has invalid settings.");
   }
 
@@ -436,7 +458,11 @@ function renderChart() {
       <button id="gear" class="sq" aria-label="Settings">⚙︎</button>
     </div>`;
       
-  const label = () => { const n = count(); $("drillbtn").textContent = n ? `Drill (${n})` : "Choose characters"; $("drillbtn").disabled = !n; };
+  const label = () => {
+    const n = count(), wordsOnly = !n && settings.mixWords === 100;
+    $("drillbtn").textContent = n ? `Drill (${n})` : wordsOnly ? "Word drill" : "Choose characters";
+    $("drillbtn").disabled = !n && !wordsOnly;
+  };
   label();
 
   let dragTarget = null;
@@ -568,8 +594,10 @@ function renderSettings() {
   const opt = (label, key, opts) => `<div class="set-row"><div class="set-label">${label}</div><div class="seg">${
     opts.map(([v, t]) => `<button data-k="${key}" data-v="${v}" class="${settings[key] === v ? "on" : ""}">${t}</button>`).join("")}</div></div>`;
 
-  const mix = settings.mixWrite + settings.mixRead + settings.mixPick;
-  if (mix !== 100) { settings.mixWrite = 34; settings.mixRead = 33; settings.mixPick = 33; }
+  const mixKeys = ["mixWrite", "mixRead", "mixPick", "mixWords"];
+  if (mixKeys.reduce((total, key) => total + settings[key], 0) !== 100) {
+    mixKeys.forEach(key => { settings[key] = DEFAULTS[key]; });
+  }
 
   view.innerHTML = `
     <div class="navbar settings-navbar">
@@ -599,20 +627,28 @@ function renderSettings() {
             <span>Recall</span>
             <span class="pct">${settings.mixPick}%</span>
           </div>
+          <div class="slider-seg" data-k="mixWords" style="width: ${settings.mixWords}%; background: var(--slate); color: #fff;">
+            <span>Words</span>
+            <span class="pct">${settings.mixWords}%</span>
+          </div>
         </div>
         
         <div class="mix-inputs">
           <div class="mix-input-group">
-            <label>Write</label>
+            <label for="in-write">Write</label>
             <input type="number" id="in-write" value="${settings.mixWrite}" min="0" max="100">
           </div>
           <div class="mix-input-group">
-            <label>Recognise</label>
+            <label for="in-read">Recognise</label>
             <input type="number" id="in-read" value="${settings.mixRead}" min="0" max="100">
           </div>
           <div class="mix-input-group">
-            <label>Recall</label>
+            <label for="in-pick">Recall</label>
             <input type="number" id="in-pick" value="${settings.mixPick}" min="0" max="100">
+          </div>
+          <div class="mix-input-group">
+            <label for="in-words">Words</label>
+            <input type="number" id="in-words" value="${settings.mixWords}" min="0" max="100">
           </div>
         </div>
       </div>
@@ -633,11 +669,13 @@ function renderSettings() {
     </div>`;
 
   const slider = $("mix-slider");
+  const inputs = ["in-write", "in-read", "in-pick", "in-words"].map($);
+  let applyWidths;
   if (slider) {
     const segs = Array.from(slider.querySelectorAll(".slider-seg"));
-    let dragging = null;
+    let drag = null;
 
-    const handles = [0, 1].map(() => {
+    const handles = Array.from({ length: segs.length - 1 }, () => {
       const h = document.createElement("div");
       h.className = "slider-handle";
       slider.appendChild(h);
@@ -648,151 +686,108 @@ function renderSettings() {
 
     const layoutHandles = () => {
       const w = widths();
-      handles[0].style.left = `calc(${w[0]}% - 6px)`;
-      handles[1].style.left = `calc(${w[0] + w[1]}% - 6px)`;
+      let boundary = 0;
+      handles.forEach((handle, i) => {
+        boundary += w[i];
+        handle.style.left = `calc(${boundary}% - 6px)`;
+      });
     };
     layoutHandles();
 
-    const applyWidths = (arr) => {
-      let a = Math.max(0, arr[0]), b = Math.max(0, arr[1]), c = Math.max(0, arr[2]);
-      const total = a + b + c || 1;
-      a = Math.round((a / total) * 100); 
-      b = Math.round((b / total) * 100); 
-      c = Math.round((c / total) * 100);
-      
-      const drift = 100 - (a + b + c);
-      c += drift;
-
-      segs[0].style.width = `${a}%`;
-      segs[1].style.width = `${b}%`;
-      segs[2].style.width = `${c}%`;
-      segs[0].querySelector(".pct").textContent = `${a}%`;
-      segs[1].querySelector(".pct").textContent = `${b}%`;
-      segs[2].querySelector(".pct").textContent = `${c}%`;
-      
-      $("in-write").value = a;
-      $("in-read").value = b;
-      $("in-pick").value = c;
-      
+    applyWidths = (arr) => {
+      const rounded = arr.map(value => Math.max(0, Math.floor(value)));
+      rounded[rounded.length - 1] = 100 - rounded.slice(0, -1).reduce((sum, value) => sum + value, 0);
+      segs.forEach((segment, i) => {
+        segment.style.width = `${rounded[i]}%`;
+        segment.querySelector(".pct").textContent = `${rounded[i]}%`;
+        inputs[i].value = rounded[i];
+      });
       layoutHandles();
     };
 
-    const startDrag = (e, idx) => {
-      dragging = idx;
-      e.preventDefault();
-      try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
-    };
+    slider.addEventListener("pointerdown", e => {
+      if (e.button !== 0) return;
+      const rect = slider.getBoundingClientRect();
+      const boundaryPositions = [];
+      let boundary = 0;
+      widths().slice(0, -1).forEach(width => {
+        boundary += width;
+        boundaryPositions.push(boundary);
+      });
+      const pointerPct = (e.clientX - rect.left) / rect.width * 100;
+      const idx = boundaryPositions.reduce((closest, position, i) =>
+        Math.abs(position - pointerPct) < Math.abs(boundaryPositions[closest] - pointerPct) ? i : closest, 0);
+      const boundaryX = rect.left + boundaryPositions[idx] / 100 * rect.width;
+      if (Math.abs(e.clientX - boundaryX) > 14) return;
 
-    handles.forEach((h, i) => {
-      h.addEventListener("pointerdown", e => startDrag(e, i));
+      const currentWidths = widths();
+      drag = {
+        index: idx,
+        offsetX: e.clientX - boundaryX,
+        left: currentWidths.slice(0, idx).reduce((sum, width) => sum + width, 0),
+        pairTotal: currentWidths[idx] + currentWidths[idx + 1]
+      };
+      e.preventDefault();
+      slider.setPointerCapture(e.pointerId);
     });
 
     const onMove = e => {
-      if (dragging === null) return;
+      if (!drag) return;
       e.preventDefault();
 
       const rect = slider.getBoundingClientRect();
-      const pct = ((e.clientX - rect.left) / rect.width) * 100;
+      const pct = ((e.clientX - drag.offsetX - rect.left) / rect.width) * 100;
       const w = widths();
-
-      if (dragging === 0) {
-        const target = Math.max(0, Math.min(100, pct));
-        const delta = target - w[0];
-        let newW0 = target;
-        let newW1 = w[1] - delta;
-        let newW2 = w[2];
-        if (newW1 < 0) { newW2 += newW1; newW1 = 0; }
-        applyWidths([newW0, newW1, newW2]);
-      } else {
-        const target = Math.max(0, Math.min(100, pct));
-        const leftEdge = w[0];
-        let newW0 = w[0];
-        let newW1 = target - leftEdge;
-        let newW2 = 100 - target;
-        if (newW1 < 0) { newW0 += newW1; newW1 = 0; }
-        applyWidths([newW0, newW1, newW2]);
-      }
+      const first = Math.round(Math.max(0, Math.min(drag.pairTotal, pct - drag.left)));
+      const adjusted = w.slice();
+      adjusted[drag.index] = first;
+      adjusted[drag.index + 1] = drag.pairTotal - first;
+      applyWidths(adjusted);
     };
 
     const onUp = () => {
-      if (dragging === null) return;
-      dragging = null;
+      if (!drag) return;
+      drag = null;
       const w = widths().map(v => Math.round(v));
-      const drift = 100 - (w[0] + w[1] + w[2]);
-      w[2] += drift;
-      
-      settings.mixWrite = w[0];
-      settings.mixRead = w[1];
-      settings.mixPick = w[2];
+      mixKeys.forEach((key, i) => { settings[key] = w[i]; });
       saveSettings();
     };
 
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    slider.addEventListener("pointermove", onMove);
+    slider.addEventListener("pointerup", onUp);
+    slider.addEventListener("pointercancel", onUp);
 
     window.__showSettingsCleanup = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      slider.removeEventListener("pointermove", onMove);
+      slider.removeEventListener("pointerup", onUp);
+      slider.removeEventListener("pointercancel", onUp);
     };
   }
 
   const updateFromInputs = (changedKey) => {
-    let w = parseInt($("in-write").value) || 0;
-    let r = parseInt($("in-read").value) || 0;
-    let p = parseInt($("in-pick").value) || 0;
+    const changedIndex = mixKeys.indexOf(changedKey);
+    const values = inputs.map(input => Math.max(0, Math.min(100, Number.parseInt(input.value, 10) || 0)));
+    const changedValue = values[changedIndex];
+    const remainder = 100 - changedValue;
+    const otherIndices = mixKeys.map((_, i) => i).filter(i => i !== changedIndex);
+    const otherTotal = otherIndices.reduce((sum, i) => sum + values[i], 0);
+    let assigned = 0;
 
-    w = Math.max(0, Math.min(100, w));
-    r = Math.max(0, Math.min(100, r));
-    p = Math.max(0, Math.min(100, p));
+    otherIndices.forEach((i, position) => {
+      values[i] = position === otherIndices.length - 1
+        ? remainder - assigned
+        : otherTotal
+          ? Math.floor(remainder * values[i] / otherTotal)
+          : Math.floor(remainder / otherIndices.length);
+      assigned += values[i];
+    });
 
-    const total = w + r + p;
-    if (total !== 100) {
-      if (changedKey === "write") {
-        const remaining = 100 - w;
-        const cur = r + p || 1;
-        r = Math.round(remaining * (r / cur));
-        p = 100 - w - r;
-      } else if (changedKey === "read") {
-        const remaining = 100 - r;
-        const cur = w + p || 1;
-        w = Math.round(remaining * (w / cur));
-        p = 100 - r - w;
-      } else {
-        const remaining = 100 - p;
-        const cur = w + r || 1;
-        w = Math.round(remaining * (w / cur));
-        r = 100 - p - w;
-      }
-    }
-
-    $("in-write").value = w;
-    $("in-read").value = r;
-    $("in-pick").value = p;
-
-    settings.mixWrite = w;
-    settings.mixRead = r;
-    settings.mixPick = p;
+    mixKeys.forEach((key, i) => { settings[key] = values[i]; });
+    applyWidths(values);
     saveSettings();
-
-    const segs = document.querySelectorAll(".slider-seg");
-    if (segs.length === 3) {
-      segs[0].style.width = `${w}%`; segs[0].querySelector(".pct").textContent = `${w}%`;
-      segs[1].style.width = `${r}%`; segs[1].querySelector(".pct").textContent = `${r}%`;
-      segs[2].style.width = `${p}%`; segs[2].querySelector(".pct").textContent = `${p}%`;
-      
-      const handles = document.querySelectorAll(".slider-handle");
-      if (handles.length === 2) {
-        handles[0].style.left = `calc(${w}% - 6px)`;
-        handles[1].style.left = `calc(${w + r}% - 6px)`;
-      }
-    }
   };
 
-  $("in-write").addEventListener("input", () => updateFromInputs("write"));
-  $("in-read").addEventListener("input", () => updateFromInputs("read"));
-  $("in-pick").addEventListener("input", () => updateFromInputs("pick"));
+  mixKeys.forEach((key, i) => inputs[i].addEventListener("input", () => updateFromInputs(key)));
   $("data-file").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;

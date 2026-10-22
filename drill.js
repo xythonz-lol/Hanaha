@@ -26,8 +26,8 @@ function drillRomaji(k) {
 }
 
 function startDrill() {
-  if (!poolChars().length) return;
-  drill = { i: 0, score: 0, missed: [], lastCh: "" };
+  if (!poolChars().length && settings.mixWords !== 100) return;
+  drill = { i: 0, score: 0, missed: [], missedWords: [], lastCh: "", lastWord: "" };
   nextQuestion();
 }
 
@@ -49,13 +49,11 @@ function nextQuestion() {
   if (drill.i >= settings.sessionLen) { renderSummary(); return; }
   drill.i++;
   
-  const k = pickChar();
-  drill.lastCh = k.ch;
-
   let weights = [
     { type: "write", weight: settings.mixWrite },
     { type: "read", weight: settings.mixRead },
-    { type: "pick", weight: settings.mixPick }
+    { type: "pick", weight: settings.mixPick },
+    { type: "word", weight: settings.mixWords }
   ];
   
   weights = weights.filter(w => w.weight > 0);
@@ -68,7 +66,17 @@ function nextQuestion() {
     r -= w.weight;
     if (r <= 0) { type = w.type; break; }
   }
-  
+
+  if (type === "word") {
+    const wordPool = WORDS.filter(word => word.kana !== drill.lastWord);
+    const word = wordPool[Math.floor(Math.random() * wordPool.length)] || WORDS[0];
+    drill.lastWord = word.kana;
+    renderWordQuestion(word);
+    return;
+  }
+
+  const k = pickChar();
+  drill.lastCh = k.ch;
   if (type === "write") renderWrite(k);
   else renderChoice(k, type);
 }
@@ -82,6 +90,46 @@ function wireQuit() { $("quit").onclick = () => { drill = null; show("chart"); }
 function answered(ch, ok) {
   record(ch, ok);
   if (ok) drill.score++; else drill.missed.push(ch);
+}
+
+function renderWordQuestion(word) {
+  const kanaToRomaji = Math.random() < 0.5;
+  const options = shuffle([word, ...shuffle(WORDS.filter(item => item !== word)).slice(0, settings.choices - 1)]);
+  const correctIndex = options.indexOf(word);
+  let picked = null, checked = false;
+  view.innerHTML = `<div class="drill word-question">${topline()}
+      <div class="word-direction">${kanaToRomaji ? "Kana → romaji" : "Romaji → kana"}</div>
+      <div class="glyph ${kanaToRomaji ? "word-kana" : "word-rom"}">${kanaToRomaji ? word.kana : word.romaji}</div>
+      <div class="opts">${options.map((option, index) =>
+        `<button class="opt ${kanaToRomaji ? "" : "kana"}" data-index="${index}">${kanaToRomaji ? option.romaji : option.kana}</button>`
+      ).join("")}</div>
+      <p id="word-meaning" class="word-meaning" aria-live="polite"></p></div>
+    <div class="foot"><button id="go" class="go" disabled>Check Answer</button></div>`;
+  wireQuit();
+  const go = $("go");
+  view.onclick = e => {
+    const button = e.target.closest(".opt");
+    if (!button || checked) return;
+    picked = Number(button.dataset.index);
+    document.querySelectorAll(".opt").forEach(option => option.classList.toggle("sel", option === button));
+    go.disabled = false;
+  };
+  go.onclick = () => {
+    if (checked) { nextQuestion(); return; }
+    checked = true;
+    const correct = picked === correctIndex;
+    document.querySelectorAll(".opt").forEach((option, index) => {
+      option.classList.remove("sel");
+      option.disabled = true;
+      if (index === correctIndex) option.classList.add("right");
+      else if (index === picked) option.classList.add("wrong");
+    });
+    if (correct) drill.score++;
+    else drill.missedWords.push(word);
+    $("word-meaning").textContent = `Meaning: ${word.meaning}`;
+    go.textContent = "Continue";
+    go.className = `go ${correct ? "good" : "bad"}`;
+  };
 }
 
 function distractors(k, n) {
@@ -239,11 +287,20 @@ function renderWrite(k) {
 
 function renderSummary() {
   const n = settings.sessionLen, missed = [...new Set(drill.missed)];
+  const missedWords = [...new Map(drill.missedWords.map(word => [word.kana, word])).values()];
+  const review = [
+    missed.length
+      ? `<h3 class="row-title">Review these (tap for stroke order)</h3><div class="chips">${missed.map(c => `<button class="chip" data-ch="${c}">${c}</button>`).join("")}</div>`
+      : "",
+    missedWords.length
+      ? `<h3 class="row-title">Words to revisit</h3><div class="word-review">${missedWords.map(word =>
+        `<div class="word-review-item"><span>${word.kana} · ${word.romaji}</span><span>${word.meaning}</span></div>`
+      ).join("")}</div>`
+      : ""
+  ].join("");
   view.innerHTML = `<div class="drill"><div class="card"><div class="score">${drill.score}/${n}</div>
       <p>${Math.round(100 * drill.score / n)}% correct</p></div>` +
-    (missed.length
-      ? `<h3 class="row-title">Review these (tap for stroke order)</h3><div class="chips">${missed.map(c => `<button class="chip" data-ch="${c}">${c}</button>`).join("")}</div>`
-      : `<p class="note">Nothing missed!</p>`) + `</div>
+    (review || `<p class="note">Nothing missed!</p>`) + `</div>
     <div class="foot"><button id="home" class="go alt">Done</button><button id="again" class="go">Drill again</button></div>`;
   $("again").onclick = startDrill;
   $("home").onclick = () => show("chart");

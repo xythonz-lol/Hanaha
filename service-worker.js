@@ -7,7 +7,7 @@
 //   - Web fonts (typekit / Google Fonts): network-first + cache, same pattern.
 //   - Bump CACHE once (this deploy) so devices install this new worker; after that
 //     CACHE can stay the same across app edits.
-const CACHE = "hirakana-v26";
+const CACHE = "hirakana-v27";
 const FILES = [
   "./", "index.html", "style.css", "data.js", "strokes.js", "drill.js", "app.js",
   "manifest.json", 

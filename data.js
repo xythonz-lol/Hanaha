@@ -60,6 +60,39 @@ buildKana(ROWS_YOON, "yoon");
 const KANA_BY_CH = {};
 KANA.forEach(k => { KANA_BY_CH[k.ch] = k; });
 
+const WORDS = [
+  { kana: "あお", romaji: "ao", meaning: "blue" },
+  { kana: "あか", romaji: "aka", meaning: "red" },
+  { kana: "いぬ", romaji: "inu", meaning: "dog" },
+  { kana: "ねこ", romaji: "neko", meaning: "cat" },
+  { kana: "みず", romaji: "mizu", meaning: "water" },
+  { kana: "やま", romaji: "yama", meaning: "mountain" },
+  { kana: "かわ", romaji: "kawa", meaning: "river" },
+  { kana: "そら", romaji: "sora", meaning: "sky" },
+  { kana: "はな", romaji: "hana", meaning: "flower" },
+  { kana: "つき", romaji: "tsuki", meaning: "moon" },
+  { kana: "ほし", romaji: "hoshi", meaning: "star" },
+  { kana: "うみ", romaji: "umi", meaning: "sea" },
+  { kana: "ひと", romaji: "hito", meaning: "person" },
+  { kana: "こども", romaji: "kodomo", meaning: "child" },
+  { kana: "ともだち", romaji: "tomodachi", meaning: "friend" },
+  { kana: "おちゃ", romaji: "ocha", meaning: "tea" },
+  { kana: "すし", romaji: "sushi", meaning: "sushi" },
+  { kana: "くるま", romaji: "kuruma", meaning: "car" },
+  { kana: "でんしゃ", romaji: "densha", meaning: "train" },
+  { kana: "にほん", romaji: "nihon", meaning: "Japan" },
+  { kana: "がっこう", romaji: "gakkou", meaning: "school" },
+  { kana: "せんせい", romaji: "sensei", meaning: "teacher" },
+  { kana: "いち", romaji: "ichi", meaning: "one" },
+  { kana: "せき", romaji: "seki", meaning: "seat" },
+  { kana: "ありがとう", romaji: "arigatou", meaning: "thank you" },
+  { kana: "おはよう", romaji: "ohayou", meaning: "good morning" },
+  { kana: "こんばんは", romaji: "konbanwa", meaning: "good evening" },
+  { kana: "さくら", romaji: "sakura", meaning: "cherry blossom" },
+  { kana: "ゆき", romaji: "yuki", meaning: "snow" },
+  { kana: "かぜ", romaji: "kaze", meaning: "wind" }
+];
+
 // Look-alike groups, used to make tricky wrong answers in multiple-choice questions
 const SIMILAR = ["さち", "ぬめ", "ねれわ", "るろ", "はほ", "まほ", "いり", "こに", "きさ", "あお", "うえ",
                  "シツ", "ソン", "クケ", "ウワ", "アマ", "チテ", "フワ", "コユ", "ノメ", "ヌス", "ミシ", "ソツ"];
