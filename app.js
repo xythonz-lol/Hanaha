@@ -33,6 +33,132 @@ store("hirakana-progress", progress);
 
 function saveSettings() { store("hirakana-settings", settings); }
 function saveSelected() { store("hirakana-selected", [...selected]); }
+function createBackup() {
+  const exportedProgress = KANA.reduce((all, k) => {
+    const p = progress[k.ch] || { right: 0, wrong: 0, streak: 0, miss: 0, interval: 0, dueDate: "" };
+    const practice = p.right + p.wrong;
+    all[k.ch] = {
+      right: p.right,
+      wrong: p.wrong,
+      streak: p.streak,
+      miss: p.miss,
+      interval: p.interval,
+      dueDate: p.dueDate,
+      proficiency: profLevel(k.ch),
+      accuracy: practice ? Math.round(100 * p.right / practice) : 0,
+      practice
+    };
+    return all;
+  }, {});
+  const totals = Object.values(exportedProgress).reduce((result, p) => {
+    result.right += p.right;
+    result.wrong += p.wrong;
+    return result;
+  }, { right: 0, wrong: 0 });
+  const practice = totals.right + totals.wrong;
+
+  return {
+    app: "hirakana",
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    data: {
+      settings,
+      progress: exportedProgress,
+      days,
+      stats: {
+        streak: calculateStreak(),
+        accuracy: practice ? Math.round(100 * totals.right / practice) : 0,
+        practice
+      }
+    }
+  };
+}
+function validateBackup(backup) {
+  if (!backup || backup.app !== "hirakana" || ![1, 2].includes(backup.version) || !backup.data) {
+    throw new Error("This is not a supported Hirakana backup.");
+  }
+
+  const data = backup.data;
+  const validChars = new Set(KANA.map(k => k.ch));
+  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "level", "theme"];
+  if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings) ||
+      Object.keys(data.settings).some(key => !validKeys.includes(key))) {
+    throw new Error("The backup has invalid settings.");
+  }
+
+  const importedSettings = Object.assign({}, DEFAULTS, data.settings);
+  if (!["hira", "kata", "both"].includes(importedSettings.script) ||
+      typeof importedSettings.showRomaji !== "boolean" ||
+      ![2, 3, 4, 6, 8, 10].includes(importedSettings.choices) ||
+      ![5, 10, 20].includes(importedSettings.sessionLen) ||
+      !["easy", "normal", "strict"].includes(importedSettings.level) ||
+      !["light", "dark", "auto"].includes(importedSettings.theme) ||
+      !["mixWrite", "mixRead", "mixPick"].every(key =>
+        Number.isInteger(importedSettings[key]) && importedSettings[key] >= 0 && importedSettings[key] <= 100
+      ) ||
+      importedSettings.mixWrite + importedSettings.mixRead + importedSettings.mixPick !== 100) {
+    throw new Error("The backup has invalid settings.");
+  }
+
+  if (!data.progress || typeof data.progress !== "object" || Array.isArray(data.progress) ||
+      Object.entries(data.progress).some(([ch, p]) =>
+        !validChars.has(ch) || !p || typeof p !== "object" || Array.isArray(p) ||
+        !["right", "wrong", "streak", "miss", "interval"].every(key =>
+          Number.isFinite(p[key]) && p[key] >= 0
+        ) || typeof p.dueDate !== "string"
+      ) || (backup.version === 2 &&
+        (Object.keys(data.progress).length !== KANA.length ||
+          KANA.some(k => !Object.prototype.hasOwnProperty.call(data.progress, k.ch)) ||
+          Object.entries(data.progress).some(([, p]) => {
+            const practice = p.right + p.wrong;
+            const accuracy = practice ? Math.round(100 * p.right / practice) : 0;
+            const proficiency = practice === 0 ? 0 : p.streak >= 3 ? 3 : p.streak >= 1 ? 2 : 1;
+            return p.practice !== practice || p.accuracy !== accuracy || p.proficiency !== proficiency;
+          })))) {
+    throw new Error("The backup has invalid progress data.");
+  }
+
+  const validDate = value => typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+    new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+  if (!Array.isArray(data.days) || data.days.some(day => !validDate(day))) {
+    throw new Error("The backup has invalid study history.");
+  }
+
+  const restoredProgress = KANA.reduce((all, k) => {
+    const p = data.progress[k.ch] || {};
+    all[k.ch] = {
+      right: p.right || 0,
+      wrong: p.wrong || 0,
+      streak: p.streak || 0,
+      miss: p.miss || 0,
+      interval: p.interval || 0,
+      dueDate: p.dueDate || ""
+    };
+    return all;
+  }, {});
+
+  if (backup.version === 2) {
+    const totals = Object.values(restoredProgress).reduce((result, p) => {
+      result.right += p.right;
+      result.wrong += p.wrong;
+      return result;
+    }, { right: 0, wrong: 0 });
+    const practice = totals.right + totals.wrong;
+    const accuracy = practice ? Math.round(100 * totals.right / practice) : 0;
+    if (!data.stats || !Number.isInteger(data.stats.streak) || data.stats.streak < 0 ||
+        data.stats.practice !== practice || data.stats.accuracy !== accuracy) {
+      throw new Error("The backup has invalid overall study statistics.");
+    }
+  }
+
+  return {
+    settings: importedSettings,
+    progress: restoredProgress,
+    days: data.days
+  };
+}
 function isMastered(ch) { return !!progress[ch] && progress[ch].streak >= 3; }
 function record(ch, ok) {
   const s = progress[ch] || (progress[ch] = { right: 0, wrong: 0, streak: 0, miss: 0, interval: 0, dueDate: "" });
@@ -492,6 +618,15 @@ function renderSettings() {
 
       ${opt("Answer choices", "choices", [[2, "2"], [3, "3"], [4, "4"], [6, "6"], [8, "8"], [10, "10"]])}
       ${opt("Questions per drill", "sessionLen", [[5, "5"], [10, "10"], [20, "20"]])}
+      <div class="set-row">
+        <div class="set-label">Study data</div>
+        <p class="note">Backups include proficiency for every kana, practice and accuracy statistics, streak history, and settings. Selected drill kana stay on this device.</p>
+        <div class="btns">
+          <button id="export-data">Export data</button>
+          <button id="import-data">Import data</button>
+          <input id="data-file" type="file" accept=".txt,.json,text/plain,application/json" hidden>
+        </div>
+      </div>
       <div class="btns"><button id="reset">Reset progress</button></div>
       <p class="note">Stroke order data: KanjiVG (c) Ulrich Apel, CC BY-SA 3.0.</p>
     </div>`;
@@ -658,10 +793,65 @@ function renderSettings() {
   $("in-read").addEventListener("input", () => updateFromInputs("read"));
   $("in-pick").addEventListener("input", () => updateFromInputs("pick"));
 
+  $("data-file").addEventListener("change", async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const backup = validateBackup(JSON.parse(await file.text()));
+      if (!confirm("Import this backup and replace the study data and settings on this device?")) return;
+
+      const keys = {
+        "hirakana-settings": backup.settings,
+        "hirakana-progress": backup.progress,
+        "hirakana-days": backup.days
+      };
+      const previous = Object.keys(keys).map(key => [key, localStorage.getItem(key)]);
+      try {
+        Object.entries(keys).forEach(([key, value]) => localStorage.setItem(key, JSON.stringify(value)));
+      } catch (error) {
+        let rollbackFailed = false;
+        previous.forEach(([key, value]) => {
+          try {
+            if (value === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, value);
+          } catch (rollbackError) {
+            rollbackFailed = true;
+          }
+        });
+        throw new Error(rollbackFailed
+          ? "Storage failed during import, and the previous data could not be fully restored."
+          : "Storage failed during import; the previous data was restored.");
+      }
+
+      settings = backup.settings;
+      progress = backup.progress;
+      days = backup.days;
+      applyTheme();
+      show("chart");
+      alert("Study data imported.");
+    } catch (error) {
+      alert(`Could not import this backup: ${error.message}`);
+    } finally {
+      e.target.value = "";
+    }
+  });
+
   view.onclick = e => {
     const b = e.target.closest("button");
     if (!b) return;
     if (b.id === "back") show("chart");
+    else if (b.id === "export-data") {
+      const backup = createBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `hirakana-data-${new Date().toISOString().slice(0, 10)}.txt`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+    else if (b.id === "import-data") $("data-file").click();
     else if (b.dataset.k) {
       const v = b.dataset.v;
       settings[b.dataset.k] =
