@@ -25,6 +25,53 @@ function drillRomaji(k) {
   return ambiguous ? `${k.romaji} (${k.row[0]} row)` : k.romaji;
 }
 
+function pronounceKana(ch) {
+  const message = $("speech-msg");
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    if (message) message.textContent = "Japanese pronunciation is not supported by this browser.";
+    return;
+  }
+
+  const speak = voice => {
+    const utterance = new SpeechSynthesisUtterance(ch);
+    utterance.lang = "ja-JP";
+    utterance.voice = voice;
+    utterance.volume = settings.pronunciationVolume / 100;
+    utterance.onerror = () => {
+      if (message) message.textContent = "Japanese pronunciation could not be played.";
+    };
+    if (message) message.textContent = "";
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  };
+
+  const findJapaneseVoice = () =>
+    speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith("ja"));
+  const voice = findJapaneseVoice();
+  if (voice) {
+    speak(voice);
+    return;
+  }
+
+  if (message) message.textContent = "Waiting for a Japanese voice from your browser.";
+  let settled = false;
+  const onVoicesChanged = () => {
+    const availableVoice = findJapaneseVoice();
+    if (settled || !availableVoice) return;
+    settled = true;
+    clearTimeout(timeout);
+    speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
+    speak(availableVoice);
+  };
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
+    if (message) message.textContent = "No Japanese voice found. Add a Japanese voice in your browser or device settings.";
+  }, 1500);
+  speechSynthesis.addEventListener("voiceschanged", onVoicesChanged);
+}
+
 function startDrill() {
   if (!poolChars().length) return;
   drill = { i: 0, score: 0, missed: [], lastCh: "" };
@@ -105,6 +152,7 @@ function renderChoice(k, kind) {
           ? `<button class="opt" data-ch="${o.ch}">${drillRomaji(o)}</button>`
           : `<button class="opt kana" data-ch="${o.ch}" data-romaji="${o.romaji}">${o.ch}</button>`
       ).join("")}</div></div>
+    <p id="speech-msg" class="note" aria-live="polite"></p>
     <div class="foot"><button id="go" class="go" disabled>Check Answer</button></div>`;
   wireQuit();
   const go = $("go");
@@ -132,6 +180,7 @@ function renderChoice(k, kind) {
       else if (x.dataset.ch === picked) x.classList.add("wrong");
     });
     answered(k.ch, ok);
+    pronounceKana(k.ch);
     go.textContent = "Continue"; go.className = "go " + (ok ? "good" : "bad");
   };
 }
@@ -141,8 +190,10 @@ function renderWrite(k) {
       <div class="prompt"><span class="rom">${drillRomaji(k)}</span><span class="sub">${SCRIPT_NAME[k.script]}</span></div>
       <div class="pair" id="pair"><canvas id="cv" width="400" height="400"></canvas></div>
       <div class="btns" id="tools"><button id="clear">Clear</button><button id="hint">Hint</button></div>
+      <p id="speech-msg" class="note" aria-live="polite"></p>
       <p id="msg" class="msg"></p></div>
     <div class="foot" id="foot"><button id="go" class="go">Check Answer</button></div>`;
+  pronounceKana(k.ch);
   wireQuit();
   view.onclick = null;
 
@@ -198,6 +249,7 @@ function renderWrite(k) {
     done = true;
     $("tools").classList.add("hidden");
     const pass = checkDrawing(strokes, k.ch, cv.width);
+    pronounceKana(k.ch);
     
     if (hinted) {
       $("msg").textContent = (pass ? "✓ Looks right" : "✗ Not quite") + " (hint used, not counted)";

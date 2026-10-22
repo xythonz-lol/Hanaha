@@ -46,16 +46,25 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 
 /* ---------- top bar ---------- */
 .navbar {
-  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+  position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   background: var(--clay); color: #fff; min-height: 64px;
   padding: env(safe-area-inset-top) 10px 4px;
 }
 .navbar button { background: none; border: 0; color: #fff; font-size: 24px; padding: 8px 14px; font-family: var(--title); }
 .navbar button:active { transform: scale(.9); opacity: .8; }
-.navbar .title-group { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
+.navbar .brand-group { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; justify-self: start; }
+.navbar .brand { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 4px 10px 4px 6px; border-radius: 999px; background: #fff; color: var(--clay); font-size: 19px; font-weight: 700; letter-spacing: .4px; font-family: var(--title); white-space: nowrap; }
+.navbar > .brand { justify-self: start; }
+.navbar .brand img { display: block; width: 28px; height: 28px; object-fit: contain; }
+.navbar .script-switch { grid-column: 2; grid-row: 1; justify-self: center; font-size: 20px; font-weight: 700; line-height: 24px; padding: 8px 12px; }
+.navbar #romaji { grid-column: 3; grid-row: 1; justify-self: end; min-width: 42px; padding: 8px 10px; }
+.navbar #scr { grid-column: 2; }
+.navbar #back { position: absolute; left: 10px; }
+.navbar .navbar-spacer { grid-column: 3; grid-row: 1; }
+.settings-navbar .brand-group { padding-left: 44px; }
+.settings-navbar .settings-title { grid-column: 2; grid-row: 1; justify-self: center; font-size: 24px; font-weight: 700; font-family: var(--title); }
 .navbar .title { font-size: 24px; font-weight: 700; letter-spacing: .5px; font-family: var(--title); padding: 4px 10px; }
 .navbar .title-sub { font-size: 13px; font-weight: 400; opacity: 0.8; margin-top: -2px; letter-spacing: 0.3px; font-family: var(--font); }
-.navbar #back { position: absolute; left: 10px; }
 
 /* ---------- header stats & needs practice dropdown ---------- */
 .header-stats {
@@ -209,6 +218,8 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 .page { max-width: 720px; margin: 0 auto; padding: 8px 14px 40px; }
 .set-row { margin: 24px 0; }
 .set-label { font-weight: 700; margin-bottom: 8px; text-align: center; font-family: var(--title); }
+.set-label output { margin-left: 6px; color: var(--clay); }
+.set-row input[type="range"] { display: block; width: 100%; accent-color: var(--clay); }
 .seg { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .seg button { padding: 8px 16px; border: 3px solid var(--clay); border-radius: 999px; background: var(--surface); font-size: 16px; color: var(--clay); font-family: var(--title); }
 .seg button.on { background: var(--clay); color: #fff; }

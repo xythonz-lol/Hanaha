@@ -11,7 +11,8 @@ function store(key, value) {
 }
 const DEFAULTS = {
   script: "hira", showRomaji: false, choices: 6, sessionLen: 10,
-  mixWrite: 34, mixRead: 33, mixPick: 33, level: "normal", theme: "auto"
+  mixWrite: 34, mixRead: 33, mixPick: 33, level: "normal", theme: "auto",
+  pronunciationVolume: 100
 };
 let settings = Object.assign({}, DEFAULTS, load("hirakana-settings", {}));
 let progress = load("hirakana-progress", {});
@@ -80,7 +81,7 @@ function validateBackup(backup) {
 
   const data = backup.data;
   const validChars = new Set(KANA.map(k => k.ch));
-  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "level", "theme"];
+  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "level", "theme", "pronunciationVolume"];
   if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings) ||
       Object.keys(data.settings).some(key => !validKeys.includes(key))) {
     throw new Error("The backup has invalid settings.");
@@ -93,6 +94,8 @@ function validateBackup(backup) {
       ![5, 10, 20].includes(importedSettings.sessionLen) ||
       !["easy", "normal", "strict"].includes(importedSettings.level) ||
       !["light", "dark", "auto"].includes(importedSettings.theme) ||
+      !Number.isInteger(importedSettings.pronunciationVolume) ||
+      importedSettings.pronunciationVolume < 0 || importedSettings.pronunciationVolume > 100 ||
       !["mixWrite", "mixRead", "mixPick"].every(key =>
         Number.isInteger(importedSettings[key]) && importedSettings[key] >= 0 && importedSettings[key] <= 100
       ) ||
@@ -367,7 +370,6 @@ function renderChart() {
   const scriptsToShow = s === "both" ? ["hira", "kata"] : [s];
 
   const count = () => KANA.filter(k => scriptsToShow.includes(k.script) && selected.has(k.ch)).length;
-  const scriptSub = s === "both" ? "Hiragana & Katakana" : (s === "hira" ? "Used for native Japanese words" : "Used for borrowed words");
   
   let right = 0, wrong = 0;
   Object.values(progress).forEach(p => { right += p.right; wrong += p.wrong; });
@@ -397,12 +399,9 @@ function renderChart() {
 
   view.innerHTML = `
     <div class="navbar">
+      <div class="brand"><img src="logo.svg" alt=""><span>hanaha</span></div>
+      <button id="scr" class="script-switch" aria-label="Switch script">${SCRIPT_NAME[s]} ⇄</button>
       <button id="romaji" class="${settings.showRomaji ? "on" : ""}" aria-label="Show romaji">A</button>
-      <div class="title-group">
-        <button id="scr" class="title">${SCRIPT_NAME[s]} ⇄</button>
-        <div class="title-sub">${scriptSub}</div>
-      </div>
-      <span style="min-width:52px"></span>
     </div>
     
     <div class="header-stats">
@@ -574,10 +573,13 @@ function renderSettings() {
   if (mix !== 100) { settings.mixWrite = 34; settings.mixRead = 33; settings.mixPick = 33; }
 
   view.innerHTML = `
-    <div class="navbar">
+    <div class="navbar settings-navbar">
       <button id="back" aria-label="Back">‹</button>
-      <div class="title-group"><span class="title">Settings</span></div>
-      <span style="min-width:52px"></span>
+      <div class="brand-group">
+        <div class="brand"><img src="logo.svg" alt=""><span>hanaha</span></div>
+      </div>
+      <div class="settings-title">Settings</div>
+      <span class="navbar-spacer"></span>
     </div>
     <div class="page">
       ${opt("Theme", "theme", [["light", "Light"], ["dark", "Dark"], ["auto", "Auto"]])}
@@ -618,6 +620,10 @@ function renderSettings() {
 
       ${opt("Answer choices", "choices", [[2, "2"], [3, "3"], [4, "4"], [6, "6"], [8, "8"], [10, "10"]])}
       ${opt("Questions per drill", "sessionLen", [[5, "5"], [10, "10"], [20, "20"]])}
+      <div class="set-row">
+        <label class="set-label" for="pronunciation-volume">Pronunciation volume <output id="pronunciation-volume-value">${settings.pronunciationVolume}%</output></label>
+        <input id="pronunciation-volume" type="range" min="0" max="100" step="1" value="${settings.pronunciationVolume}">
+      </div>
       <div class="set-row">
         <div class="set-label">Study data</div>
         <p class="note">Backups include proficiency for every kana, practice and accuracy statistics, streak history, and settings. Selected drill kana stay on this device.</p>
@@ -792,6 +798,11 @@ function renderSettings() {
   $("in-write").addEventListener("input", () => updateFromInputs("write"));
   $("in-read").addEventListener("input", () => updateFromInputs("read"));
   $("in-pick").addEventListener("input", () => updateFromInputs("pick"));
+  $("pronunciation-volume").addEventListener("input", e => {
+    settings.pronunciationVolume = Number(e.target.value);
+    $("pronunciation-volume-value").value = `${settings.pronunciationVolume}%`;
+    saveSettings();
+  });
 
   $("data-file").addEventListener("change", async e => {
     const file = e.target.files[0];
@@ -847,7 +858,7 @@ function renderSettings() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `hirakana-data-${new Date().toISOString().slice(0, 10)}.txt`;
+      link.download = `hanaha-data-${new Date().toISOString().slice(0, 10)}.txt`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     }
