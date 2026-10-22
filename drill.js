@@ -18,6 +18,13 @@ function poolChars() {
   });
 }
 
+function drillRomaji(k) {
+  const ambiguous = KANA.some(x =>
+    x.script === k.script && x.ch !== k.ch && x.romaji === k.romaji
+  );
+  return ambiguous ? `${k.romaji} (${k.row[0]} row)` : k.romaji;
+}
+
 function startDrill() {
   if (!poolChars().length) return;
   drill = { i: 0, score: 0, missed: [], lastCh: "" };
@@ -92,10 +99,10 @@ function renderChoice(k, kind) {
   const opts = shuffle([k, ...distractors(k, settings.choices - 1)]);
   let picked = null, checked = false;
   view.innerHTML = `<div class="drill">${topline()}
-      <div class="glyph ${read ? "" : "rom"}">${read ? k.ch : k.romaji}</div>
+      <div class="glyph ${read ? "" : "rom"}">${read ? k.ch : drillRomaji(k)}</div>
       <div class="opts">${opts.map(o =>
         read
-          ? `<button class="opt" data-ch="${o.ch}">${o.romaji}</button>`
+          ? `<button class="opt" data-ch="${o.ch}">${drillRomaji(o)}</button>`
           : `<button class="opt kana" data-ch="${o.ch}" data-romaji="${o.romaji}">${o.ch}</button>`
       ).join("")}</div></div>
     <div class="foot"><button id="go" class="go" disabled>Check Answer</button></div>`;
@@ -115,7 +122,7 @@ function renderChoice(k, kind) {
     document.querySelectorAll(".opt.kana").forEach(x => {
       if (!x.querySelector("small")) {
         const s = document.createElement("small");
-        s.textContent = x.dataset.romaji;
+        s.textContent = drillRomaji(KANA_BY_CH[x.dataset.ch]);
         x.appendChild(s);
       }
     });
@@ -131,7 +138,7 @@ function renderChoice(k, kind) {
 
 function renderWrite(k) {
   view.innerHTML = `<div class="drill">${topline()}
-      <div class="prompt"><span class="rom">${k.romaji}</span><span class="sub">${SCRIPT_NAME[k.script]}</span></div>
+      <div class="prompt"><span class="rom">${drillRomaji(k)}</span><span class="sub">${SCRIPT_NAME[k.script]}</span></div>
       <div class="pair" id="pair"><canvas id="cv" width="400" height="400"></canvas></div>
       <div class="btns" id="tools"><button id="clear">Clear</button><button id="hint">Hint</button></div>
       <p id="msg" class="msg"></p></div>
