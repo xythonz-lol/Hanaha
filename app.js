@@ -11,10 +11,10 @@ function store(key, value) {
 }
 const DEFAULTS = {
   script: "hira", showRomaji: false, choices: 6, sessionLen: 10,
-  mixWrite: 34, mixRead: 33, mixPick: 33, level: "normal", theme: "auto",
-  pronunciationVolume: 100
+  mixWrite: 34, mixRead: 33, mixPick: 33, level: "normal", theme: "auto"
 };
 let settings = Object.assign({}, DEFAULTS, load("hirakana-settings", {}));
+delete settings.pronunciationVolume;
 let progress = load("hirakana-progress", {});
 let days = load("hirakana-days", []);
 let selected = new Set(load("hirakana-selected", KANA.filter(k => k.row === "a" || k.row === "ka").map(k => k.ch)));
@@ -81,21 +81,20 @@ function validateBackup(backup) {
 
   const data = backup.data;
   const validChars = new Set(KANA.map(k => k.ch));
-  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "level", "theme", "pronunciationVolume"];
+  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "level", "theme"];
   if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings) ||
-      Object.keys(data.settings).some(key => !validKeys.includes(key))) {
+      Object.keys(data.settings).some(key => !validKeys.includes(key) && key !== "pronunciationVolume")) {
     throw new Error("The backup has invalid settings.");
   }
 
   const importedSettings = Object.assign({}, DEFAULTS, data.settings);
+  delete importedSettings.pronunciationVolume;
   if (!["hira", "kata", "both"].includes(importedSettings.script) ||
       typeof importedSettings.showRomaji !== "boolean" ||
       ![2, 3, 4, 6, 8, 10].includes(importedSettings.choices) ||
       ![5, 10, 20].includes(importedSettings.sessionLen) ||
       !["easy", "normal", "strict"].includes(importedSettings.level) ||
       !["light", "dark", "auto"].includes(importedSettings.theme) ||
-      !Number.isInteger(importedSettings.pronunciationVolume) ||
-      importedSettings.pronunciationVolume < 0 || importedSettings.pronunciationVolume > 100 ||
       !["mixWrite", "mixRead", "mixPick"].every(key =>
         Number.isInteger(importedSettings[key]) && importedSettings[key] >= 0 && importedSettings[key] <= 100
       ) ||
@@ -621,10 +620,6 @@ function renderSettings() {
       ${opt("Answer choices", "choices", [[2, "2"], [3, "3"], [4, "4"], [6, "6"], [8, "8"], [10, "10"]])}
       ${opt("Questions per drill", "sessionLen", [[5, "5"], [10, "10"], [20, "20"]])}
       <div class="set-row">
-        <label class="set-label" for="pronunciation-volume">Pronunciation volume <output id="pronunciation-volume-value">${settings.pronunciationVolume}%</output></label>
-        <input id="pronunciation-volume" type="range" min="0" max="100" step="1" value="${settings.pronunciationVolume}">
-      </div>
-      <div class="set-row">
         <div class="set-label">Study data</div>
         <p class="note">Backups include proficiency for every kana, practice and accuracy statistics, streak history, and settings. Selected drill kana stay on this device.</p>
         <div class="btns">
@@ -798,12 +793,6 @@ function renderSettings() {
   $("in-write").addEventListener("input", () => updateFromInputs("write"));
   $("in-read").addEventListener("input", () => updateFromInputs("read"));
   $("in-pick").addEventListener("input", () => updateFromInputs("pick"));
-  $("pronunciation-volume").addEventListener("input", e => {
-    settings.pronunciationVolume = Number(e.target.value);
-    $("pronunciation-volume-value").value = `${settings.pronunciationVolume}%`;
-    saveSettings();
-  });
-
   $("data-file").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
