@@ -60,6 +60,13 @@ buildKana(ROWS_YOON, "yoon");
 const KANA_BY_CH = {};
 KANA.forEach(k => { KANA_BY_CH[k.ch] = k; });
 
+const PRONUNCIATION_FILES = new Set([
+  "a", "chi", "e", "fu", "ha", "he", "hi", "ho", "i", "ka", "ke", "ki", "ko", "ku",
+  "ma", "me", "mi", "mo", "mu", "n", "na", "ne", "ni", "no", "nu", "o", "ra", "re",
+  "ri", "ro", "ru", "sa", "se", "shi", "so", "su", "ta", "te", "to", "tsu", "u",
+  "wa", "wo", "ya", "yo", "yu"
+]);
+
 const WORDS = [
   { kana: "あお", romaji: "ao", meaning: "blue" },
   { kana: "あか", romaji: "aka", meaning: "red" },

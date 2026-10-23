@@ -25,23 +25,188 @@ function drillRomaji(k) {
   return ambiguous ? `${k.romaji} (${k.row[0]} row)` : k.romaji;
 }
 
+function kanaInScript(kana, script) {
+  return script === "kata"
+    ? [...kana].map(ch => String.fromCodePoint(ch.codePointAt(0) + 0x60)).join("")
+    : kana;
+}
+
+function kanaTokens(kana, script, requireSelected) {
+  const kanae = KANA
+    .filter(k => k.script === script && (!requireSelected || selected.has(k.ch)))
+    .sort((a, b) => b.ch.length - a.ch.length);
+  const tokens = [];
+  let offset = 0;
+  while (offset < kana.length) {
+    const token = kanae.find(k => kana.startsWith(k.ch, offset));
+    if (!token) return null;
+    tokens.push(token);
+    offset += token.ch.length;
+  }
+  return tokens;
+}
+
+function selectedKanaTokens(kana, script) {
+  return kanaTokens(kana, script, true);
+}
+
+function wordQuestionPool() {
+  const scripts = settings.script === "both" ? ["hira", "kata"] : [settings.script];
+  return WORDS.flatMap(word => {
+    for (const script of scripts) {
+      const kana = kanaInScript(word.kana, script);
+      const tokens = selectedKanaTokens(kana, script);
+      if (tokens && tokens.every(token => PRONUNCIATION_FILES.has(token.romaji))) {
+        return [{ ...word, kana, pronunciation: tokens.map(token => token.romaji) }];
+      }
+    }
+    return [];
+  });
+}
+
+let pronunciationContext = null;
+let pronunciationSources = [];
+let pronunciationGains = [];
+let pronunciationPlayback = 0;
+const pronunciationBuffers = new Map();
+
+function setPronunciationVolume(percent) {
+  pronunciationGains.forEach(gain => { gain.gain.value = percent / 100; });
+}
+
+function pronunciationBuffer(romaji) {
+  if (!pronunciationBuffers.has(romaji)) {
+    const request = fetch(`pronunciation/${romaji}.mp3`)
+      .then(response => {
+        if (!response.ok) throw new Error(`Could not load pronunciation/${romaji}.mp3 (${response.status}).`);
+        return response.arrayBuffer();
+      })
+      .then(data => pronunciationContext.decodeAudioData(data))
+      .catch(error => {
+        pronunciationBuffers.delete(romaji);
+        throw error;
+      });
+    pronunciationBuffers.set(romaji, request);
+  }
+  return pronunciationBuffers.get(romaji);
+}
+
+function firstPronunciation(buffer) {
+  const frameSize = Math.max(1, Math.round(buffer.sampleRate / 100));
+  const channels = Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i));
+  const frameCount = Math.ceil(buffer.length / frameSize);
+  let firstSpeechFrame = -1;
+  let lastSpeechFrame = -1;
+
+  for (let frame = 0; frame < frameCount; frame++) {
+    const start = frame * frameSize;
+    const end = Math.min(start + frameSize, buffer.length);
+    let energy = 0;
+    for (const channel of channels) {
+      for (let i = start; i < end; i++) energy += channel[i] * channel[i];
+    }
+    const rms = Math.sqrt(energy / ((end - start) * channels.length));
+    if (rms > 0.004) {
+      if (firstSpeechFrame < 0) firstSpeechFrame = frame;
+      lastSpeechFrame = frame;
+    } else if (lastSpeechFrame >= 0 && frame - lastSpeechFrame >= 18) {
+      break;
+    }
+  }
+
+  if (firstSpeechFrame < 0) throw new Error("The pronunciation contains no detectable speech.");
+  const start = Math.max(0, firstSpeechFrame * frameSize / buffer.sampleRate - 0.04);
+  const end = Math.min(buffer.duration, (lastSpeechFrame + 1) * frameSize / buffer.sampleRate + 0.08);
+  return { start, duration: end - start };
+}
+
+async function playPronunciation(romaji) {
+  const playback = ++pronunciationPlayback;
+  pronunciationSources.forEach(source => source.stop());
+  pronunciationSources = [];
+  pronunciationGains = [];
+
+  if (!romaji.length || settings.pronunciationVolumePercent === 0 ||
+      romaji.some(value => !value || !PRONUNCIATION_FILES.has(value))) return;
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error("Audio playback is not supported by this browser.");
+    if (!pronunciationContext) pronunciationContext = new AudioContextClass();
+    await pronunciationContext.resume();
+    const buffers = await Promise.all(romaji.map(pronunciationBuffer));
+    if (playback !== pronunciationPlayback) return;
+    const clips = buffers.map(firstPronunciation);
+    const sampleRate = buffers[0].sampleRate;
+    const channels = Math.max(...buffers.map(buffer => buffer.numberOfChannels));
+    const gapFrames = Math.round(sampleRate * 0.015);
+    const segments = buffers.map((buffer, index) => {
+      const start = Math.floor(clips[index].start * sampleRate);
+      const end = Math.min(buffer.length, Math.ceil((clips[index].start + clips[index].duration) * sampleRate));
+      return { buffer, start, length: end - start };
+    });
+    const totalFrames = segments.reduce((total, segment) => total + segment.length, 0) +
+      gapFrames * Math.max(0, segments.length - 1);
+    const wordBuffer = pronunciationContext.createBuffer(channels, totalFrames, sampleRate);
+    for (let channel = 0; channel < channels; channel++) {
+      const output = wordBuffer.getChannelData(channel);
+      let offset = 0;
+      segments.forEach((segment, index) => {
+        const input = segment.buffer.getChannelData(Math.min(channel, segment.buffer.numberOfChannels - 1));
+        output.set(input.subarray(segment.start, segment.start + segment.length), offset);
+        offset += segment.length + (index < segments.length - 1 ? gapFrames : 0);
+      });
+    }
+
+    const source = pronunciationContext.createBufferSource();
+    source.buffer = wordBuffer;
+    const gain = pronunciationContext.createGain();
+    gain.gain.value = settings.pronunciationVolumePercent / 100;
+    source.connect(gain);
+    gain.connect(pronunciationContext.destination);
+    pronunciationSources.push(source);
+    pronunciationGains.push(gain);
+    source.start();
+  } catch (error) {
+    if (playback === pronunciationPlayback) console.error("Could not play kana pronunciation.", error);
+  }
+}
+
+function playKanaPronunciation(kana) {
+  const script = [...kana].some(ch => ch >= "\u30a0") ? "kata" : "hira";
+  const tokens = kanaTokens(kana, script, false);
+  if (tokens) return playPronunciation(tokens.map(token => token.romaji));
+}
+
 function startDrill() {
-  if (!poolChars().length && settings.mixWords !== 100) return;
-  drill = { i: 0, score: 0, missed: [], missedWords: [], lastCh: "", lastWord: "" };
+  const hasKanaQuestions = poolChars().length > 0 &&
+    settings.mixWrite + settings.mixRead + settings.mixPick > 0;
+  const hasWordQuestions = wordQuestionPool().length >= 2 && settings.mixWords > 0;
+  if (!hasKanaQuestions && !hasWordQuestions) return;
+  drill = { i: 0, score: 0, missed: [], missedWords: [], lastCh: "", lastWord: "", askedChars: new Set() };
   nextQuestion();
 }
 
 function pickChar() {
   const pool = poolChars();
-  const w = pool.map(k => {
+  const unseen = pool.filter(k => !drill.askedChars.has(k.ch));
+  const candidates = unseen.length ? unseen : pool;
+  const w = candidates.map(k => {
     if (k.ch === drill.lastCh && pool.length > 1) return 0;
     const s = progress[k.ch];
     if (!s) return 2;
     return (isMastered(k.ch) ? 0.3 : 1) + 3 * s.miss;
   });
   let r = Math.random() * w.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i]; }
-  return pool[0];
+  for (let i = 0; i < candidates.length; i++) {
+    r -= w[i];
+    if (r <= 0) {
+      drill.askedChars.add(candidates[i].ch);
+      return candidates[i];
+    }
+  }
+  drill.askedChars.add(candidates[0].ch);
+  return candidates[0];
 }
 
 function nextQuestion() {
@@ -49,15 +214,21 @@ function nextQuestion() {
   if (drill.i >= settings.sessionLen) { renderSummary(); return; }
   drill.i++;
   
+  const chars = poolChars();
+  const words = wordQuestionPool();
   let weights = [
-    { type: "write", weight: settings.mixWrite },
-    { type: "read", weight: settings.mixRead },
-    { type: "pick", weight: settings.mixPick },
-    { type: "word", weight: settings.mixWords }
+    { type: "write", weight: chars.length ? settings.mixWrite : 0 },
+    { type: "read", weight: chars.length ? settings.mixRead : 0 },
+    { type: "pick", weight: chars.length ? settings.mixPick : 0 },
+    { type: "word", weight: words.length >= 2 ? settings.mixWords : 0 }
   ];
   
   weights = weights.filter(w => w.weight > 0);
-  if (!weights.length) weights = [{ type: "write", weight: 1 }];
+  if (!weights.length) {
+    drill.i--;
+    renderSummary();
+    return;
+  }
 
   const totalWeight = weights.reduce((a, b) => a + b.weight, 0);
   let r = Math.random() * totalWeight;
@@ -68,8 +239,8 @@ function nextQuestion() {
   }
 
   if (type === "word") {
-    const wordPool = WORDS.filter(word => word.kana !== drill.lastWord);
-    const word = wordPool[Math.floor(Math.random() * wordPool.length)] || WORDS[0];
+    const wordPool = words.filter(word => word.kana !== drill.lastWord);
+    const word = wordPool[Math.floor(Math.random() * wordPool.length)] || words[0];
     drill.lastWord = word.kana;
     renderWordQuestion(word);
     return;
@@ -94,7 +265,13 @@ function answered(ch, ok) {
 
 function renderWordQuestion(word) {
   const kanaToRomaji = Math.random() < 0.5;
-  const options = shuffle([word, ...shuffle(WORDS.filter(item => item !== word)).slice(0, settings.choices - 1)]);
+  const script = settings.script === "both"
+    ? [...word.kana].some(ch => ch >= "\u30a0") ? "kata" : "hira"
+    : settings.script;
+  const distractors = WORDS
+    .filter(item => item.romaji !== word.romaji)
+    .map(item => ({ ...item, kana: kanaInScript(item.kana, script) }));
+  const options = shuffle([word, ...shuffle(distractors).slice(0, settings.choices - 1)]);
   const correctIndex = options.indexOf(word);
   let picked = null, checked = false;
   view.innerHTML = `<div class="drill word-question">${topline()}
@@ -103,7 +280,7 @@ function renderWordQuestion(word) {
       <div class="opts">${options.map((option, index) =>
         `<button class="opt ${kanaToRomaji ? "" : "kana"}" data-index="${index}">${kanaToRomaji ? option.romaji : option.kana}</button>`
       ).join("")}</div>
-      <p id="word-meaning" class="word-meaning" aria-live="polite"></p></div>
+    </div>
     <div class="foot"><button id="go" class="go" disabled>Check Answer</button></div>`;
   wireQuit();
   const go = $("go");
@@ -123,10 +300,16 @@ function renderWordQuestion(word) {
       option.disabled = true;
       if (index === correctIndex) option.classList.add("right");
       else if (index === picked) option.classList.add("wrong");
+      const detail = document.createElement("small");
+      detail.className = "word-option-detail";
+      detail.textContent = kanaToRomaji
+        ? options[index].meaning
+        : `${options[index].romaji} · ${options[index].meaning}`;
+      option.appendChild(detail);
     });
     if (correct) drill.score++;
     else drill.missedWords.push(word);
-    $("word-meaning").textContent = `Meaning: ${word.meaning}`;
+    playPronunciation(word.pronunciation);
     go.textContent = "Continue";
     go.className = `go ${correct ? "good" : "bad"}`;
   };
@@ -180,6 +363,7 @@ function renderChoice(k, kind) {
       else if (x.dataset.ch === picked) x.classList.add("wrong");
     });
     answered(k.ch, ok);
+    playKanaPronunciation(k.ch);
     go.textContent = "Continue"; go.className = "go " + (ok ? "good" : "bad");
   };
 }
@@ -246,6 +430,7 @@ function renderWrite(k) {
     done = true;
     $("tools").classList.add("hidden");
     const pass = checkDrawing(strokes, k.ch, cv.width);
+    playKanaPronunciation(k.ch);
     
     if (hinted) {
       $("msg").textContent = (pass ? "✓ Looks right" : "✗ Not quite") + " (hint used, not counted)";
@@ -253,7 +438,6 @@ function renderWrite(k) {
       showContinue(pass ? "good" : "bad", nextQuestion);
     } else if (pass) {
       $("msg").textContent = "✓ Correct!";
-      answered(k.ch, true);
       addReference();
       
       $("foot").innerHTML = `
@@ -261,18 +445,9 @@ function renderWrite(k) {
         <button id="go" class="go good">Continue</button>
       `;
       
-      $("mine").onclick = () => { 
-        const s = progress[k.ch];
-        if (s) {
-          s.right = Math.max(0, s.right - 1);
-          s.streak = Math.max(0, s.streak - 1);
-          s.miss = s.miss + 1; 
-        }
-        record(k.ch, false);
-        nextQuestion();
-      };
+      $("mine").onclick = () => { answered(k.ch, false); nextQuestion(); };
       
-      $("go").onclick = nextQuestion;
+      $("go").onclick = () => { answered(k.ch, true); nextQuestion(); };
       
     } else {
       $("msg").textContent = `✗ Not quite. This is ${k.ch} - watch the stroke order.`;

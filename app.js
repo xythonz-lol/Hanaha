@@ -11,7 +11,8 @@ function store(key, value) {
 }
 const DEFAULTS = {
   script: "hira", showRomaji: false, choices: 6, sessionLen: 10,
-  mixWrite: 28, mixRead: 26, mixPick: 26, mixWords: 20, level: "normal", theme: "auto"
+  mixWrite: 28, mixRead: 26, mixPick: 26, mixWords: 20, pronunciationVolumePercent: 100,
+  level: "normal", theme: "auto"
 };
 function migrateQuestionMix(target, hasWordMix) {
   const kanaKeys = ["mixWrite", "mixRead", "mixPick"];
@@ -35,6 +36,12 @@ if (savedSettings) {
   migrateQuestionMix(settings, Object.prototype.hasOwnProperty.call(savedSettings, "mixWords"));
 }
 delete settings.pronunciationVolume;
+const invalidPronunciationVolume = !Number.isInteger(settings.pronunciationVolumePercent) ||
+  settings.pronunciationVolumePercent < 0 || settings.pronunciationVolumePercent > 100;
+if (invalidPronunciationVolume) settings.pronunciationVolumePercent = DEFAULTS.pronunciationVolumePercent;
+const migrateAnswerChoices = settings.choices === 2 || settings.choices === 3;
+if (migrateAnswerChoices) settings.choices = 4;
+if (invalidPronunciationVolume || migrateAnswerChoices) saveSettings();
 let progress = load("hirakana-progress", {});
 let days = load("hirakana-days", []);
 let selected = new Set(load("hirakana-selected", KANA.filter(k => k.row === "a" || k.row === "ka").map(k => k.ch)));
@@ -101,7 +108,7 @@ function validateBackup(backup) {
 
   const data = backup.data;
   const validChars = new Set(KANA.map(k => k.ch));
-  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "mixWords", "level", "theme"];
+  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "mixWords", "pronunciationVolumePercent", "level", "theme"];
   if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings) ||
       Object.keys(data.settings).some(key => !validKeys.includes(key) && key !== "pronunciationVolume")) {
     throw new Error("The backup has invalid settings.");
@@ -110,12 +117,15 @@ function validateBackup(backup) {
   const importedSettings = Object.assign({}, DEFAULTS, data.settings);
   migrateQuestionMix(importedSettings, Object.prototype.hasOwnProperty.call(data.settings, "mixWords"));
   delete importedSettings.pronunciationVolume;
+  if (importedSettings.choices === 2 || importedSettings.choices === 3) importedSettings.choices = 4;
   if (!["hira", "kata", "both"].includes(importedSettings.script) ||
       typeof importedSettings.showRomaji !== "boolean" ||
-      ![2, 3, 4, 6, 8, 10].includes(importedSettings.choices) ||
+      ![4, 6, 8, 10].includes(importedSettings.choices) ||
       ![5, 10, 20].includes(importedSettings.sessionLen) ||
       !["easy", "normal", "strict"].includes(importedSettings.level) ||
       !["light", "dark", "auto"].includes(importedSettings.theme) ||
+      !Number.isInteger(importedSettings.pronunciationVolumePercent) ||
+      importedSettings.pronunciationVolumePercent < 0 || importedSettings.pronunciationVolumePercent > 100 ||
       !Number.isInteger(importedSettings.mixWords) || importedSettings.mixWords < 0 || importedSettings.mixWords > 100 ||
       !["mixWrite", "mixRead", "mixPick"].every(key =>
         Number.isInteger(importedSettings[key]) && importedSettings[key] >= 0 && importedSettings[key] <= 100
@@ -374,7 +384,7 @@ function renderSection(s, rows, group, isBoth) {
     for (let c = 0; c < cols; c++) {
       const k = isYoon ? chars[c] : chars.find(x => x.col === c);
       cells += k
-        ? `<button class="tile ${isYoon ? "yoon" : ""} lvl-${profLevel(k.ch)} ${selected.has(k.ch) ? "picked" : ""}" data-ch="${k.ch}">${k.ch}${settings.showRomaji ? `<small>${k.romaji}</small>` : ""}</button>`
+        ? `<button class="tile ${isYoon ? "yoon" : ""} ${settings.showRomaji ? "has-romaji" : ""} lvl-${profLevel(k.ch)} ${selected.has(k.ch) ? "picked" : ""}" data-ch="${k.ch}">${k.ch}${settings.showRomaji ? `<small>${k.romaji}</small>` : ""}</button>`
         : `<div></div>`;
     }
   });
@@ -421,8 +431,14 @@ function renderChart() {
   view.innerHTML = `
     <div class="navbar">
       <div class="brand"><img src="logo.svg" alt=""><span>hanaha</span></div>
-      <button id="scr" class="script-switch" aria-label="Switch script">${SCRIPT_NAME[s]} ⇄</button>
-      <button id="romaji" class="${settings.showRomaji ? "on" : ""}" aria-label="Show romaji">A</button>
+      <div class="script-switch-group">
+        <button id="scr" class="script-switch" aria-label="Switch script">${SCRIPT_NAME[s]} ⇄</button>
+        <span class="script-switch-sub">${s === "hira" ? "used for native words" : s === "kata" ? "used for foreign words" : "Hiragana and Katakana"}</span>
+      </div>
+      <div class="romaji-switch-group">
+        <button id="romaji" class="${settings.showRomaji ? "on" : ""}" aria-label="Show romaji">A</button>
+        <span class="romaji-switch-sub">romaji</span>
+      </div>
     </div>
     
     <div class="header-stats">
@@ -459,9 +475,11 @@ function renderChart() {
     </div>`;
       
   const label = () => {
-    const n = count(), wordsOnly = !n && settings.mixWords === 100;
-    $("drillbtn").textContent = n ? `Drill (${n})` : wordsOnly ? "Word drill" : "Choose characters";
-    $("drillbtn").disabled = !n && !wordsOnly;
+    const n = count();
+    const hasKanaQuestions = n > 0 && settings.mixWrite + settings.mixRead + settings.mixPick > 0;
+    const hasWordQuestions = wordQuestionPool().length >= 2 && settings.mixWords > 0;
+    $("drillbtn").textContent = n ? `Drill (${n})` : hasWordQuestions ? "Word drill" : "Choose characters";
+    $("drillbtn").disabled = !hasKanaQuestions && !hasWordQuestions;
   };
   label();
 
@@ -611,6 +629,10 @@ function renderSettings() {
     <div class="page">
       ${opt("Theme", "theme", [["light", "Light"], ["dark", "Dark"], ["auto", "Auto"]])}
       ${opt("Writing check", "level", [["easy", "Easy"], ["normal", "Normal"], ["strict", "Strict"]])}
+      <div class="set-row">
+        <label class="set-label" for="pronunciation-volume">Pronunciation volume <output id="pronunciation-volume-value">${settings.pronunciationVolumePercent}%</output></label>
+        <input id="pronunciation-volume" type="range" min="0" max="100" step="1" value="${settings.pronunciationVolumePercent}">
+      </div>
 
       <div class="set-row">
         <div class="set-label">Question Mix</div>
@@ -653,11 +675,11 @@ function renderSettings() {
         </div>
       </div>
 
-      ${opt("Answer choices", "choices", [[2, "2"], [3, "3"], [4, "4"], [6, "6"], [8, "8"], [10, "10"]])}
+      ${opt("Answer choices", "choices", [[4, "4"], [6, "6"], [8, "8"], [10, "10"]])}
       ${opt("Questions per drill", "sessionLen", [[5, "5"], [10, "10"], [20, "20"]])}
       <div class="set-row">
         <div class="set-label">Study data</div>
-        <p class="note">Backups include proficiency for every kana, practice and accuracy statistics, streak history, and settings. Selected drill kana stay on this device.</p>
+        <p class="note">Backups include proficiency for every kana, practice and accuracy statistics, streak history, and settings.</p>
         <div class="btns">
           <button id="export-data">Export data</button>
           <button id="import-data">Import data</button>
@@ -669,6 +691,13 @@ function renderSettings() {
     </div>`;
 
   const slider = $("mix-slider");
+  const volumeSlider = $("pronunciation-volume");
+  volumeSlider.addEventListener("input", () => {
+    settings.pronunciationVolumePercent = Number(volumeSlider.value);
+    $("pronunciation-volume-value").value = `${settings.pronunciationVolumePercent}%`;
+    setPronunciationVolume(settings.pronunciationVolumePercent);
+    saveSettings();
+  });
   const inputs = ["in-write", "in-read", "in-pick", "in-words"].map($);
   let applyWidths;
   if (slider) {
@@ -822,6 +851,7 @@ function renderSettings() {
       settings = backup.settings;
       progress = backup.progress;
       days = backup.days;
+      setPronunciationVolume(settings.pronunciationVolumePercent);
       applyTheme();
       show("chart");
       alert("Study data imported.");
