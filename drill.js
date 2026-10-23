@@ -25,12 +25,6 @@ function drillRomaji(k) {
   return ambiguous ? `${k.romaji} (${k.row[0]} row)` : k.romaji;
 }
 
-function kanaInScript(kana, script) {
-  return script === "kata"
-    ? [...kana].map(ch => String.fromCodePoint(ch.codePointAt(0) + 0x60)).join("")
-    : kana;
-}
-
 function kanaTokens(kana, script, requireSelected) {
   const kanae = KANA
     .filter(k => k.script === script && (!requireSelected || selected.has(k.ch)))
@@ -38,6 +32,10 @@ function kanaTokens(kana, script, requireSelected) {
   const tokens = [];
   let offset = 0;
   while (offset < kana.length) {
+    if (script === "kata" && kana[offset] === "ー") {
+      offset++;
+      continue;
+    }
     const token = kanae.find(k => kana.startsWith(k.ch, offset));
     if (!token) return null;
     tokens.push(token);
@@ -51,17 +49,17 @@ function selectedKanaTokens(kana, script) {
 }
 
 function wordQuestionPool() {
-  const scripts = settings.script === "both" ? ["hira", "kata"] : [settings.script];
-  return WORDS.flatMap(word => {
-    for (const script of scripts) {
-      const kana = kanaInScript(word.kana, script);
-      const tokens = selectedKanaTokens(kana, script);
-      if (tokens && tokens.every(token => PRONUNCIATION_FILES.has(token.romaji))) {
-        return [{ ...word, kana, pronunciation: tokens.map(token => token.romaji) }];
-      }
-    }
-    return [];
-  });
+  const vocabularies = settings.script === "both"
+    ? [{ words: WORDS, script: "hira" }, { words: KATAKANA_WORDS, script: "kata" }]
+    : [{ words: settings.script === "kata" ? KATAKANA_WORDS : WORDS, script: settings.script }];
+  return vocabularies.flatMap(({ words, script }) => words.flatMap(word => {
+    const tokens = selectedKanaTokens(word.kana, script);
+    if (!tokens) return [];
+    const pronunciation = tokens.every(token => PRONUNCIATION_FILES.has(token.romaji))
+      ? tokens.map(token => token.romaji)
+      : null;
+    return [{ ...word, script, ...(pronunciation ? { pronunciation } : {}) }];
+  }));
 }
 
 let pronunciationContext = null;
@@ -182,13 +180,21 @@ function startDrill() {
   const hasKanaQuestions = poolChars().length > 0 &&
     settings.mixWrite + settings.mixRead + settings.mixPick > 0;
   const hasWordQuestions = wordQuestionPool().length >= 2 && settings.mixWords > 0;
-  if (!hasKanaQuestions && !hasWordQuestions) return;
+  const hasListenQuestions = settings.mixListen > 0 && canListen();
+  if (!hasKanaQuestions && !hasWordQuestions && !hasListenQuestions) return;
   drill = { i: 0, score: 0, missed: [], missedWords: [], lastCh: "", lastWord: "", askedChars: new Set() };
   nextQuestion();
 }
 
-function pickChar() {
-  const pool = poolChars();
+function listeningPool() {
+  return poolChars().filter(k => PRONUNCIATION_FILES.has(k.romaji));
+}
+
+function canListen() {
+  return new Set(listeningPool().map(k => k.romaji)).size >= 2;
+}
+
+function pickChar(pool = poolChars()) {
   const unseen = pool.filter(k => !drill.askedChars.has(k.ch));
   const candidates = unseen.length ? unseen : pool;
   const w = candidates.map(k => {
@@ -220,7 +226,8 @@ function nextQuestion() {
     { type: "write", weight: chars.length ? settings.mixWrite : 0 },
     { type: "read", weight: chars.length ? settings.mixRead : 0 },
     { type: "pick", weight: chars.length ? settings.mixPick : 0 },
-    { type: "word", weight: words.length >= 2 ? settings.mixWords : 0 }
+    { type: "word", weight: words.length >= 2 ? settings.mixWords : 0 },
+    { type: "listen", weight: canListen() ? settings.mixListen : 0 }
   ];
   
   weights = weights.filter(w => w.weight > 0);
@@ -246,6 +253,13 @@ function nextQuestion() {
     return;
   }
 
+  if (type === "listen") {
+    const k = pickChar(listeningPool());
+    drill.lastCh = k.ch;
+    renderListeningQuestion(k);
+    return;
+  }
+
   const k = pickChar();
   drill.lastCh = k.ch;
   if (type === "write") renderWrite(k);
@@ -265,12 +279,8 @@ function answered(ch, ok) {
 
 function renderWordQuestion(word) {
   const kanaToRomaji = Math.random() < 0.5;
-  const script = settings.script === "both"
-    ? [...word.kana].some(ch => ch >= "\u30a0") ? "kata" : "hira"
-    : settings.script;
-  const distractors = WORDS
-    .filter(item => item.romaji !== word.romaji)
-    .map(item => ({ ...item, kana: kanaInScript(item.kana, script) }));
+  const script = word.script;
+  const distractors = wordQuestionPool().filter(item => item.romaji !== word.romaji);
   const options = shuffle([word, ...shuffle(distractors).slice(0, settings.choices - 1)]);
   const correctIndex = options.indexOf(word);
   let picked = null, checked = false;
@@ -309,7 +319,7 @@ function renderWordQuestion(word) {
     });
     if (correct) drill.score++;
     else drill.missedWords.push(word);
-    playPronunciation(word.pronunciation);
+    if (word.pronunciation) playPronunciation(word.pronunciation);
     go.textContent = "Continue";
     go.className = `go ${correct ? "good" : "bad"}`;
   };
@@ -365,6 +375,49 @@ function renderChoice(k, kind) {
     answered(k.ch, ok);
     playKanaPronunciation(k.ch);
     go.textContent = "Continue"; go.className = "go " + (ok ? "good" : "bad");
+  };
+}
+
+function renderListeningQuestion(k) {
+  const pool = listeningPool();
+  const sounds = [...new Set(pool.map(item => item.romaji))];
+  const distractors = shuffle(sounds.filter(sound => sound !== k.romaji))
+    .slice(0, settings.choices - 1);
+  const options = shuffle([k.romaji, ...distractors]);
+  let picked = null, checked = false;
+  view.innerHTML = `<div class="drill listening-question">${topline()}
+      <div class="word-direction">Listen and choose the sound</div>
+      <button id="listen-play" class="audio-play" aria-label="Play sound">▶ Play sound</button>
+      <div class="opts">${options.map(sound =>
+        `<button class="opt" data-romaji="${sound}">${sound}</button>`
+      ).join("")}</div>
+      <p id="listen-feedback" class="listen-feedback" aria-live="polite"></p></div>
+    <div class="foot"><button id="go" class="go" disabled>Check Answer</button></div>`;
+  wireQuit();
+  $("listen-play").onclick = () => playPronunciation([k.romaji]);
+  const go = $("go");
+  view.onclick = e => {
+    const button = e.target.closest(".opt");
+    if (!button || checked) return;
+    picked = button.dataset.romaji;
+    document.querySelectorAll(".opt").forEach(option => option.classList.toggle("sel", option === button));
+    go.disabled = false;
+  };
+  go.onclick = () => {
+    if (checked) { nextQuestion(); return; }
+    checked = true;
+    const correct = picked === k.romaji;
+    document.querySelectorAll(".opt").forEach(option => {
+      option.classList.remove("sel");
+      option.disabled = true;
+      if (option.dataset.romaji === k.romaji) option.classList.add("right");
+      else if (option.dataset.romaji === picked) option.classList.add("wrong");
+    });
+    $("listen-feedback").textContent = k.ch;
+    answered(k.ch, correct);
+    playPronunciation([k.romaji]);
+    go.textContent = "Continue";
+    go.className = `go ${correct ? "good" : "bad"}`;
   };
 }
 

@@ -11,12 +11,13 @@ function store(key, value) {
 }
 const DEFAULTS = {
   script: "hira", showRomaji: false, choices: 6, sessionLen: 10,
-  mixWrite: 28, mixRead: 26, mixPick: 26, mixWords: 20, pronunciationVolumePercent: 100,
+  mixWrite: 28, mixRead: 26, mixPick: 26, mixWords: 20, mixListen: 0, pronunciationVolumePercent: 100,
   level: "normal", theme: "auto"
 };
-function migrateQuestionMix(target, hasWordMix) {
+function migrateQuestionMix(target, hasWordMix, hasListenMix) {
   const kanaKeys = ["mixWrite", "mixRead", "mixPick"];
   if (!hasWordMix) target.mixWords = 0;
+  if (!hasListenMix) target.mixListen = 0;
   const kanaTotal = kanaKeys.reduce((total, key) => total + target[key], 0);
   if (hasWordMix && kanaTotal === 100 && kanaTotal + target.mixWords !== 100 &&
       Number.isInteger(target.mixWords) && target.mixWords >= 0 && target.mixWords <= 100) {
@@ -33,15 +34,20 @@ function migrateQuestionMix(target, hasWordMix) {
 const savedSettings = load("hirakana-settings", null);
 let settings = Object.assign({}, DEFAULTS, savedSettings || {});
 if (savedSettings) {
-  migrateQuestionMix(settings, Object.prototype.hasOwnProperty.call(savedSettings, "mixWords"));
+  migrateQuestionMix(
+    settings,
+    Object.prototype.hasOwnProperty.call(savedSettings, "mixWords"),
+    Object.prototype.hasOwnProperty.call(savedSettings, "mixListen")
+  );
 }
+const migratedListeningMix = !!savedSettings && !Object.prototype.hasOwnProperty.call(savedSettings, "mixListen");
 delete settings.pronunciationVolume;
 const invalidPronunciationVolume = !Number.isInteger(settings.pronunciationVolumePercent) ||
   settings.pronunciationVolumePercent < 0 || settings.pronunciationVolumePercent > 100;
 if (invalidPronunciationVolume) settings.pronunciationVolumePercent = DEFAULTS.pronunciationVolumePercent;
 const migrateAnswerChoices = settings.choices === 2 || settings.choices === 3;
 if (migrateAnswerChoices) settings.choices = 4;
-if (invalidPronunciationVolume || migrateAnswerChoices) saveSettings();
+if (invalidPronunciationVolume || migrateAnswerChoices || migratedListeningMix) saveSettings();
 let progress = load("hirakana-progress", {});
 let days = load("hirakana-days", []);
 let selected = new Set(load("hirakana-selected", KANA.filter(k => k.row === "a" || k.row === "ka").map(k => k.ch)));
@@ -108,14 +114,18 @@ function validateBackup(backup) {
 
   const data = backup.data;
   const validChars = new Set(KANA.map(k => k.ch));
-  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "mixWords", "pronunciationVolumePercent", "level", "theme"];
+  const validKeys = ["script", "showRomaji", "choices", "sessionLen", "mixWrite", "mixRead", "mixPick", "mixWords", "mixListen", "pronunciationVolumePercent", "level", "theme"];
   if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings) ||
       Object.keys(data.settings).some(key => !validKeys.includes(key) && key !== "pronunciationVolume")) {
     throw new Error("The backup has invalid settings.");
   }
 
   const importedSettings = Object.assign({}, DEFAULTS, data.settings);
-  migrateQuestionMix(importedSettings, Object.prototype.hasOwnProperty.call(data.settings, "mixWords"));
+  migrateQuestionMix(
+    importedSettings,
+    Object.prototype.hasOwnProperty.call(data.settings, "mixWords"),
+    Object.prototype.hasOwnProperty.call(data.settings, "mixListen")
+  );
   delete importedSettings.pronunciationVolume;
   if (importedSettings.choices === 2 || importedSettings.choices === 3) importedSettings.choices = 4;
   if (!["hira", "kata", "both"].includes(importedSettings.script) ||
@@ -127,10 +137,12 @@ function validateBackup(backup) {
       !Number.isInteger(importedSettings.pronunciationVolumePercent) ||
       importedSettings.pronunciationVolumePercent < 0 || importedSettings.pronunciationVolumePercent > 100 ||
       !Number.isInteger(importedSettings.mixWords) || importedSettings.mixWords < 0 || importedSettings.mixWords > 100 ||
+      !Number.isInteger(importedSettings.mixListen) || importedSettings.mixListen < 0 || importedSettings.mixListen > 100 ||
       !["mixWrite", "mixRead", "mixPick"].every(key =>
         Number.isInteger(importedSettings[key]) && importedSettings[key] >= 0 && importedSettings[key] <= 100
       ) ||
-      importedSettings.mixWrite + importedSettings.mixRead + importedSettings.mixPick + importedSettings.mixWords !== 100) {
+      importedSettings.mixWrite + importedSettings.mixRead + importedSettings.mixPick +
+        importedSettings.mixWords + importedSettings.mixListen !== 100) {
     throw new Error("The backup has invalid settings.");
   }
 
@@ -469,17 +481,25 @@ function renderChart() {
     ${scriptsToShow.includes("kata") ? renderSection("kata", ROWS_YOON, "yoon", s === "both") : ""}
     
     <div class="dock">
-      <button id="drillbtn" class="grow"></button>
-      <button id="study" class="sq ${studyMode ? "on" : ""}" aria-label="Study mode (stroke order)">✒︎</button>
-      <button id="gear" class="sq" aria-label="Settings">⚙︎</button>
+      <p id="drill-warning" class="drill-warning" aria-live="polite" hidden></p>
+      <div class="dock-actions">
+        <button id="drillbtn" class="grow"></button>
+        <button id="study" class="sq ${studyMode ? "on" : ""}" aria-label="Study mode (stroke order)">✒︎</button>
+        <button id="gear" class="sq" aria-label="Settings">⚙︎</button>
+      </div>
     </div>`;
       
   const label = () => {
     const n = count();
     const hasKanaQuestions = n > 0 && settings.mixWrite + settings.mixRead + settings.mixPick > 0;
-    const hasWordQuestions = wordQuestionPool().length >= 2 && settings.mixWords > 0;
+    const wordCount = wordQuestionPool().length;
+    const hasWordQuestions = wordCount >= 2 && settings.mixWords > 0;
+    const hasListenQuestions = settings.mixListen > 0 && canListen();
     $("drillbtn").textContent = n ? `Drill (${n})` : hasWordQuestions ? "Word drill" : "Choose characters";
-    $("drillbtn").disabled = !hasKanaQuestions && !hasWordQuestions;
+    $("drillbtn").disabled = !hasKanaQuestions && !hasWordQuestions && !hasListenQuestions;
+    const wordWarning = $("drill-warning");
+    wordWarning.hidden = settings.mixWords === 0 || wordCount >= 2;
+    wordWarning.textContent = wordWarning.hidden ? "" : "Not enough words available. Select more kana to practise words.";
   };
   label();
 
@@ -612,7 +632,7 @@ function renderSettings() {
   const opt = (label, key, opts) => `<div class="set-row"><div class="set-label">${label}</div><div class="seg">${
     opts.map(([v, t]) => `<button data-k="${key}" data-v="${v}" class="${settings[key] === v ? "on" : ""}">${t}</button>`).join("")}</div></div>`;
 
-  const mixKeys = ["mixWrite", "mixRead", "mixPick", "mixWords"];
+  const mixKeys = ["mixWrite", "mixRead", "mixPick", "mixWords", "mixListen"];
   if (mixKeys.reduce((total, key) => total + settings[key], 0) !== 100) {
     mixKeys.forEach(key => { settings[key] = DEFAULTS[key]; });
   }
@@ -642,7 +662,7 @@ function renderSettings() {
             <span class="pct">${settings.mixWrite}%</span>
           </div>
           <div class="slider-seg" data-k="mixRead" style="width: ${settings.mixRead}%; background: var(--peach); color: var(--ink);">
-            <span>Recognise</span>
+            <span>Read</span>
             <span class="pct">${settings.mixRead}%</span>
           </div>
           <div class="slider-seg" data-k="mixPick" style="width: ${settings.mixPick}%; background: var(--peach-dark); color: var(--ink);">
@@ -653,6 +673,10 @@ function renderSettings() {
             <span>Words</span>
             <span class="pct">${settings.mixWords}%</span>
           </div>
+          <div class="slider-seg" data-k="mixListen" style="width: ${settings.mixListen}%; background: var(--slate-dark); color: #fff;">
+            <span>Listen</span>
+            <span class="pct">${settings.mixListen}%</span>
+          </div>
         </div>
         
         <div class="mix-inputs">
@@ -661,7 +685,7 @@ function renderSettings() {
             <input type="number" id="in-write" value="${settings.mixWrite}" min="0" max="100">
           </div>
           <div class="mix-input-group">
-            <label for="in-read">Recognise</label>
+            <label for="in-read">Read</label>
             <input type="number" id="in-read" value="${settings.mixRead}" min="0" max="100">
           </div>
           <div class="mix-input-group">
@@ -671,6 +695,10 @@ function renderSettings() {
           <div class="mix-input-group">
             <label for="in-words">Words</label>
             <input type="number" id="in-words" value="${settings.mixWords}" min="0" max="100">
+          </div>
+          <div class="mix-input-group">
+            <label for="in-listen">Listen</label>
+            <input type="number" id="in-listen" value="${settings.mixListen}" min="0" max="100">
           </div>
         </div>
       </div>
@@ -698,7 +726,7 @@ function renderSettings() {
     setPronunciationVolume(settings.pronunciationVolumePercent);
     saveSettings();
   });
-  const inputs = ["in-write", "in-read", "in-pick", "in-words"].map($);
+  const inputs = ["in-write", "in-read", "in-pick", "in-words", "in-listen"].map($);
   let applyWidths;
   if (slider) {
     const segs = Array.from(slider.querySelectorAll(".slider-seg"));

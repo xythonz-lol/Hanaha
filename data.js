@@ -100,6 +100,31 @@ const WORDS = [
   { kana: "かぜ", romaji: "kaze", meaning: "wind" }
 ];
 
+const KATAKANA_WORDS = [
+  { kana: "アイス", romaji: "aisu", meaning: "ice cream" },
+  { kana: "コーヒー", romaji: "koohii", meaning: "coffee" },
+  { kana: "テレビ", romaji: "terebi", meaning: "television" },
+  { kana: "カメラ", romaji: "kamera", meaning: "camera" },
+  { kana: "ホテル", romaji: "hoteru", meaning: "hotel" },
+  { kana: "バス", romaji: "basu", meaning: "bus" },
+  { kana: "タクシー", romaji: "takushii", meaning: "taxi" },
+  { kana: "ピアノ", romaji: "piano", meaning: "piano" },
+  { kana: "ギター", romaji: "gitaa", meaning: "guitar" },
+  { kana: "トマト", romaji: "tomato", meaning: "tomato" },
+  { kana: "パン", romaji: "pan", meaning: "bread" },
+  { kana: "レモン", romaji: "remon", meaning: "lemon" },
+  { kana: "チーズ", romaji: "chiizu", meaning: "cheese" },
+  { kana: "ジュース", romaji: "juusu", meaning: "juice" },
+  { kana: "ケーキ", romaji: "keeki", meaning: "cake" },
+  { kana: "バナナ", romaji: "banana", meaning: "banana" },
+  { kana: "オレンジ", romaji: "orenji", meaning: "orange" },
+  { kana: "メニュー", romaji: "menyuu", meaning: "menu" },
+  { kana: "ゲーム", romaji: "geemu", meaning: "game" },
+  { kana: "カレー", romaji: "karee", meaning: "curry" },
+  { kana: "エアコン", romaji: "eakon", meaning: "air conditioner" },
+  { kana: "コンピューター", romaji: "konpyuutaa", meaning: "computer" }
+];
+
 // Look-alike groups, used to make tricky wrong answers in multiple-choice questions
 const SIMILAR = ["さち", "ぬめ", "ねれわ", "るろ", "はほ", "まほ", "いり", "こに", "きさ", "あお", "うえ",
                  "シツ", "ソン", "クケ", "ウワ", "アマ", "チテ", "フワ", "コユ", "ノメ", "ヌス", "ミシ", "ソツ"];
