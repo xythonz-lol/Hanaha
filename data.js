@@ -64,7 +64,12 @@ const PRONUNCIATION_FILES = new Set([
   "a", "chi", "e", "fu", "ha", "he", "hi", "ho", "i", "ka", "ke", "ki", "ko", "ku",
   "ma", "me", "mi", "mo", "mu", "n", "na", "ne", "ni", "no", "nu", "o", "ra", "re",
   "ri", "ro", "ru", "sa", "se", "shi", "so", "su", "ta", "te", "to", "tsu", "u",
-  "wa", "wo", "ya", "yo", "yu"
+  "wa", "wo", "ya", "yo", "yu", "ba", "be", "bi", "bo", "bu", "da", "de", "do",
+  "ga", "ge", "gi", "go", "gu", "ji", "pa", "pe", "pi", "po", "pu", "za", "ze",
+  "zo", "zu", "bya", "byo", "byu", "cha", "cho", "chu", "gya", "gyo", "gyu",
+  "hya", "hyo", "hyu",
+  "ja", "jo", "ju", "kya", "kyo", "kyu", "mya", "myo", "myu", "nya", "nyo", "nyu",
+  "pya", "pyo", "pyu", "rya", "ryo", "ryu", "sha", "sho", "shu"
 ]);
 
 const WORDS = [

@@ -620,6 +620,7 @@ function openDetail(ch, list) {
       <div class="btns">${hasStrokes ? `<button id="replay">Replay</button>` : ""}<button id="close" class="primary">Close</button></div></div>`;
   modal.classList.add("open");
   playStrokes($("dcv"), ch);
+  playKanaPronunciation(ch);
   if (hasStrokes) $("replay").onclick = () => playStrokes($("dcv"), ch);
   $("prev").onclick = () => go(-1);
   $("next").onclick = () => go(1);

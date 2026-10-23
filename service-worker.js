@@ -7,7 +7,7 @@
 //   - Web fonts (typekit / Google Fonts): network-first + cache, same pattern.
 //   - Bump CACHE once (this deploy) so devices install this new worker; after that
 //     CACHE can stay the same across app edits.
-const CACHE = "hirakana-v29";
+const CACHE = "hirakana-v31";
 const FILES = [
   "./", "index.html", "style.css", "data.js", "strokes.js", "drill.js", "app.js",
   "manifest.json", 
@@ -23,7 +23,26 @@ const FILES = [
   "pronunciation/se.mp3", "pronunciation/shi.mp3", "pronunciation/so.mp3", "pronunciation/su.mp3",
   "pronunciation/ta.mp3", "pronunciation/te.mp3", "pronunciation/to.mp3", "pronunciation/tsu.mp3",
   "pronunciation/u.mp3", "pronunciation/wa.mp3", "pronunciation/wo.mp3", "pronunciation/ya.mp3",
-  "pronunciation/yo.mp3", "pronunciation/yu.mp3"
+  "pronunciation/yo.mp3", "pronunciation/yu.mp3",
+  "pronunciation/ba.mp3", "pronunciation/be.mp3", "pronunciation/bi.mp3",
+  "pronunciation/bo.mp3", "pronunciation/bu.mp3", "pronunciation/da.mp3",
+  "pronunciation/de.mp3", "pronunciation/do.mp3", "pronunciation/ga.mp3",
+  "pronunciation/ge.mp3", "pronunciation/gi.mp3", "pronunciation/go.mp3",
+  "pronunciation/gu.mp3", "pronunciation/ji.mp3", "pronunciation/pa.mp3",
+  "pronunciation/pe.mp3", "pronunciation/pi.mp3", "pronunciation/po.mp3",
+  "pronunciation/pu.mp3", "pronunciation/za.mp3", "pronunciation/ze.mp3",
+  "pronunciation/zo.mp3", "pronunciation/zu.mp3",
+  "pronunciation/bya.mp3", "pronunciation/byo.mp3", "pronunciation/byu.mp3",
+  "pronunciation/cha.mp3", "pronunciation/cho.mp3", "pronunciation/chu.mp3",
+  "pronunciation/gya.mp3", "pronunciation/gyo.mp3", "pronunciation/gyu.mp3",
+  "pronunciation/hya.mp3", "pronunciation/hyo.mp3", "pronunciation/hyu.mp3",
+  "pronunciation/ja.mp3", "pronunciation/jo.mp3", "pronunciation/ju.mp3",
+  "pronunciation/kya.mp3", "pronunciation/kyo.mp3", "pronunciation/kyu.mp3",
+  "pronunciation/mya.mp3", "pronunciation/myo.mp3", "pronunciation/myu.mp3",
+  "pronunciation/nya.mp3", "pronunciation/nyo.mp3", "pronunciation/nyu.mp3",
+  "pronunciation/pya.mp3", "pronunciation/pyo.mp3", "pronunciation/pyu.mp3",
+  "pronunciation/rya.mp3", "pronunciation/ryo.mp3", "pronunciation/ryu.mp3",
+  "pronunciation/sha.mp3", "pronunciation/sho.mp3", "pronunciation/shu.mp3"
 ];
 
 self.addEventListener("install", e => {

@@ -1,0 +1,7 @@
+All pronunciation MP3s in this directory use the unified Kuuuube/kana-quiz-sounds
+audio set, pinned to commit 85b04001d6c45ac0c68a4e78b0493460e275cd1a:
+https://github.com/Kuuuube/kana-quiz-sounds/tree/85b04001d6c45ac0c68a4e78b0493460e275cd1a/audio/0
+
+The set covers gojuon, dakuten/handakuten, and yoon. Its kana-to-audio mapping
+is documented in the source repository's main.js. The source repository declares
+GPL-3.0; see LICENSE-GPL-3.0.txt.
