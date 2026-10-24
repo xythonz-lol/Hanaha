@@ -380,16 +380,15 @@ function renderChoice(k, kind) {
 
 function renderListeningQuestion(k) {
   const pool = listeningPool();
-  const sounds = [...new Set(pool.map(item => item.romaji))];
-  const distractors = shuffle(sounds.filter(sound => sound !== k.romaji))
+  const distractors = shuffle(pool.filter(item => item.ch !== k.ch))
     .slice(0, settings.choices - 1);
-  const options = shuffle([k.romaji, ...distractors]);
+  const options = shuffle([k, ...distractors]);
   let picked = null, checked = false;
   view.innerHTML = `<div class="drill listening-question">${topline()}
-      <div class="word-direction">Listen and choose the sound</div>
+      <div class="word-direction">Listen and choose the kana</div>
       <button id="listen-play" class="audio-play" aria-label="Play sound">▶ Play sound</button>
-      <div class="opts">${options.map(sound =>
-        `<button class="opt" data-romaji="${sound}">${sound}</button>`
+      <div class="opts">${options.map(option =>
+        `<button class="opt kana" data-ch="${option.ch}" data-romaji="${option.romaji}">${option.ch}<small>${drillRomaji(option)}</small></button>`
       ).join("")}</div>
       <p id="listen-feedback" class="listen-feedback" aria-live="polite"></p></div>
     <div class="foot"><button id="go" class="go" disabled>Check Answer</button></div>`;
@@ -399,19 +398,19 @@ function renderListeningQuestion(k) {
   view.onclick = e => {
     const button = e.target.closest(".opt");
     if (!button || checked) return;
-    picked = button.dataset.romaji;
+    picked = button.dataset.ch;
     document.querySelectorAll(".opt").forEach(option => option.classList.toggle("sel", option === button));
     go.disabled = false;
   };
   go.onclick = () => {
     if (checked) { nextQuestion(); return; }
     checked = true;
-    const correct = picked === k.romaji;
+    const correct = picked === k.ch;
     document.querySelectorAll(".opt").forEach(option => {
       option.classList.remove("sel");
       option.disabled = true;
-      if (option.dataset.romaji === k.romaji) option.classList.add("right");
-      else if (option.dataset.romaji === picked) option.classList.add("wrong");
+      if (option.dataset.ch === k.ch) option.classList.add("right");
+      else if (option.dataset.ch === picked) option.classList.add("wrong");
     });
     $("listen-feedback").textContent = k.ch;
     answered(k.ch, correct);
