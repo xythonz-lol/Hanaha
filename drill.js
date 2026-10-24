@@ -417,11 +417,9 @@ function renderListeningQuestion(k) {
       if (option.dataset.ch === k.ch) option.classList.add("right");
       else if (option.dataset.ch === picked) option.classList.add("wrong");
 
-      if (option.dataset.ch === k.ch || option.dataset.ch === picked) {
-        const small = document.createElement("small");
-        small.textContent = drillRomaji(KANA_BY_CH[option.dataset.ch]);
-        option.appendChild(small);
-      }
+      const small = document.createElement("small");
+      small.textContent = drillRomaji(KANA_BY_CH[option.dataset.ch]);
+      option.appendChild(small);
     });
 
     $("listen-feedback").textContent = k.ch;
