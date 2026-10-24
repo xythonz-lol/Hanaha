@@ -379,8 +379,9 @@ function renderChoice(k, kind) {
 }
 
 function renderListeningQuestion(k) {
-  const allPronounceable = KANA.filter(item => PRONUNCIATION_FILES.has(item.romaji));
-  const distractors = shuffle(allPronounceable.filter(item => item.ch !== k.ch))
+  const pool = KANA.filter(item => PRONUNCIATION_FILES.has(item.romaji) &&
+    (settings.script === "both" || item.script === settings.script));
+  const distractors = shuffle(pool.filter(item => item.ch !== k.ch))
     .slice(0, settings.choices - 1);
   const options = shuffle([k, ...distractors]);
   let picked = null, checked = false;
