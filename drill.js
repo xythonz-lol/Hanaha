@@ -423,7 +423,6 @@ function renderListeningQuestion(k) {
       option.appendChild(small);
     });
 
-    $("listen-feedback").textContent = k.ch;
     answered(k.ch, correct);
     playPronunciation([k.romaji]);
     go.textContent = "Continue";

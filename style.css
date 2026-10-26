@@ -176,7 +176,7 @@ button:focus-visible { outline: 3px solid var(--slate); outline-offset: 3px; }
 .listening-question .opts { margin-top: 18px; }
 .listen-feedback {
   min-height: 1.3em; margin: 12px 0 0; text-align: center; color: var(--slate);
-  font-family: var(--kana); font-size: 42px; font-weight: 500; line-height: 1.3;
+  font-family: var(--title); font-size: 18px; font-weight: 700; line-height: 1.3;
 }
 .word-question .glyph { font-size: clamp(40px, 13vw, 88px); margin: 12px 0; overflow-wrap: anywhere; }
 .word-question .glyph.word-rom { font-family: var(--title); font-weight: 700; }

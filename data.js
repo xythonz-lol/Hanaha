@@ -102,7 +102,31 @@ const WORDS = [
   { kana: "こんばんは", romaji: "konbanwa", meaning: "good evening" },
   { kana: "さくら", romaji: "sakura", meaning: "cherry blossom" },
   { kana: "ゆき", romaji: "yuki", meaning: "snow" },
-  { kana: "かぜ", romaji: "kaze", meaning: "wind" }
+  { kana: "かぜ", romaji: "kaze", meaning: "wind" },
+  { kana: "たまご", romaji: "tamago", meaning: "egg" },
+  { kana: "りんご", romaji: "ringo", meaning: "apple" },
+  { kana: "おかね", romaji: "okane", meaning: "money" },
+  { kana: "とけい", romaji: "tokei", meaning: "clock" },
+  { kana: "ほん", romaji: "hon", meaning: "book" },
+  { kana: "まど", romaji: "mado", meaning: "window" },
+  { kana: "いえ", romaji: "ie", meaning: "house" },
+  { kana: "へや", romaji: "heya", meaning: "room" },
+  { kana: "みみ", romaji: "mimi", meaning: "ear" },
+  { kana: "くち", romaji: "kuchi", meaning: "mouth" },
+  { kana: "あし", romaji: "ashi", meaning: "foot; leg" },
+  { kana: "ゆめ", romaji: "yume", meaning: "dream" },
+  { kana: "もり", romaji: "mori", meaning: "forest" },
+  { kana: "ふゆ", romaji: "fuyu", meaning: "winter" },
+  { kana: "なつ", romaji: "natsu", meaning: "summer" },
+  { kana: "あき", romaji: "aki", meaning: "autumn" },
+  { kana: "はる", romaji: "haru", meaning: "spring" },
+  { kana: "ひる", romaji: "hiru", meaning: "daytime" },
+  { kana: "よる", romaji: "yoru", meaning: "night" },
+  { kana: "ちず", romaji: "chizu", meaning: "map" },
+  { kana: "かぞく", romaji: "kazoku", meaning: "family" },
+  { kana: "しんぶん", romaji: "shinbun", meaning: "newspaper" },
+  { kana: "かばん", romaji: "kaban", meaning: "bag" },
+  { kana: "りょうり", romaji: "ryouri", meaning: "cooking" }
 ];
 
 const KATAKANA_WORDS = [
@@ -127,7 +151,29 @@ const KATAKANA_WORDS = [
   { kana: "ゲーム", romaji: "geemu", meaning: "game" },
   { kana: "カレー", romaji: "karee", meaning: "curry" },
   { kana: "エアコン", romaji: "eakon", meaning: "air conditioner" },
-  { kana: "コンピューター", romaji: "konpyuutaa", meaning: "computer" }
+  { kana: "コンピューター", romaji: "konpyuutaa", meaning: "computer" },
+  { kana: "スマホ", romaji: "sumaho", meaning: "smartphone" },
+  { kana: "スーパー", romaji: "suupaa", meaning: "supermarket" },
+  { kana: "ラジオ", romaji: "rajio", meaning: "radio" },
+  { kana: "スポーツ", romaji: "supootsu", meaning: "sports" },
+  { kana: "ドア", romaji: "doa", meaning: "door" },
+  { kana: "シャツ", romaji: "shatsu", meaning: "shirt" },
+  { kana: "シャワー", romaji: "shawaa", meaning: "shower" },
+  { kana: "ペン", romaji: "pen", meaning: "pen" },
+  { kana: "ミルク", romaji: "miruku", meaning: "milk" },
+  { kana: "サラダ", romaji: "sarada", meaning: "salad" },
+  { kana: "アニメ", romaji: "anime", meaning: "anime" },
+  { kana: "マスク", romaji: "masuku", meaning: "mask" },
+  { kana: "ニュース", romaji: "nyuusu", meaning: "news" },
+  { kana: "タオル", romaji: "taoru", meaning: "towel" },
+  { kana: "ビール", romaji: "biiru", meaning: "beer" },
+  { kana: "ワイン", romaji: "wain", meaning: "wine" },
+  { kana: "バター", romaji: "bataa", meaning: "butter" },
+  { kana: "カレンダー", romaji: "karendaa", meaning: "calendar" },
+  { kana: "ガス", romaji: "gasu", meaning: "gas" },
+  { kana: "コピー", romaji: "kopii", meaning: "copy" },
+  { kana: "パソコン", romaji: "pasokon", meaning: "personal computer" },
+  { kana: "デザイン", romaji: "dezain", meaning: "design" }
 ];
 
 // Look-alike groups, used to make tricky wrong answers in multiple-choice questions
